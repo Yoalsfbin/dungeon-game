@@ -37,6 +37,11 @@ function enemyMotionFrame(entity, kind, now) {
   const context = canvas.getContext("2d"), horizontal = 80 + (left - anchorX) * scale, vertical = 140 + (top - anchorY) * scale;
   context.imageSmoothingEnabled = false;
   context.drawImage(source.image, left, top, width, height, horizontal, vertical, width * scale, height * scale);
+  if(kind==='hoshi'&&tier===1){
+    const mask=document.createElement('canvas');mask.width=mask.height=160;const maskContext=mask.getContext('2d'),runs=atob(metadata.plainMasks[frameIndex]);
+    for(let index=0;index<runs.length;index+=3)maskContext.fillRect(horizontal+runs.charCodeAt(index)*width*scale/48,vertical+runs.charCodeAt(index+1)*height*scale/48,runs.charCodeAt(index+2)*width*scale/48,height*scale/48);
+    context.globalCompositeOperation='destination-in';context.drawImage(mask,0,0);context.globalCompositeOperation='source-over';
+  }
   const tint = kind==="banjin"&&entity.variant===30?"#ae78bd":monsterTint(kind, tier);
   if (tint) {
     const encoded=(kind==="banjin"&&entity.variant===30?metadata.bodyMasks:metadata.masks)[frameIndex];
@@ -56,9 +61,9 @@ const WORLD_ICON_KEYS = ["herb", "rice", "club", "buckler", "ring", "arrow", "bo
 const WORLD_THEMES = ["cave", "snow", "jungle", "ruins", "ice", "lake", "volcano", "altar"];
 const MONSTER_ACCENTS = {
   muni:["#70d6bd", "#bb8dde", "#f4ca65"], mokko:[null, "#67b9b0", "#e7be58"], kusune:[null, "#6e85bf", "#9e71b9"],
-  berogaeru:[null, "#b4d451", "#bc7bd8"], hitotsume:[null, "#e27b81", "#7799af"], kinokoro:[null, "#b884de", "#80dce9"],
+  berogaeru:[null, "#d67c50", "#bc7bd8"], hitotsume:[null, "#e27b81", "#7799af"], kinokoro:[null, "#b884de", "#80dce9"],
   yumi:[null, "#dfaf59", "#dc7966"], sabi:[null, "#99b871", "#70c4b0"], hara:["#b69cdb", "#8dc8e8", "#e69aba"],
-  wana:["#a763a4", "#d8b76b", "#9b85cf"], tsubo:[null, "#438b82", "#945b82"], nise:[null, "#d48b7a", "#9e8dd0"],
+  wana:[null, "#658dba", "#a76da7"], tsubo:[null, "#438b82", "#945b82"], nise:[null, "#d48b7a", "#9e8dd0"],
   pen:[null, "#6dbf97", "#b583c7"], tsuta:[null, "#d96056", "#edc853"], kage:[null, "#53b9be", "#e180ac"],
   banjin:[null, "#8ca8df", "#e8c06b"], kiba:[null, "#9b79bc", "#d5ae59"], hibachi:[null, "#ce8be9", "#85d9ed"],
   hoshi:[null, "#cbd4df", "#efbe42"], iwagame:[null, "#bea76c", "#85bc93"], fuefuki:[null, "#80cdd6", "#ba9ae6"],
@@ -102,10 +107,17 @@ function loadWorldArt() {
   icons.onload = () => {
     worldArt.items = icons;
     WORLD_ICON_KEYS.forEach((key, index) => { if (key !== "item_ring" || !worldArt.icons.has(key)) worldArt.icons.set(key, artCell(icons, WORLD_RECTS.items[index])); });
+    const coin=worldArt.icons.get("item_coin"),coinContext=coin.getContext("2d");
+    coinContext.globalCompositeOperation="color";coinContext.fillStyle="#e7ad35";coinContext.fillRect(0,0,128,128);
+    coinContext.globalCompositeOperation="destination-in";const mask=artCell(icons,WORLD_RECTS.items[9]);coinContext.drawImage(mask,0,0);coinContext.globalCompositeOperation="source-over";
     draw.st = null;
     if (state === "inv") renderInv(); else if (state === "menu") renderMenu();
   };
   icons.src = "./assets/world/items.png";
+  const stone=new Image();stone.onload=()=>{
+    worldArt.icons.set("item_ar_stone",artCell(stone,[518,284,488,463]));draw.st=null;
+    if(state==="inv")renderInv();else if(state==="menu")renderMenu();
+  };stone.src="./assets/world/stone.png";
   const bracelet = new Image(); bracelet.onload = () => {
     worldArt.icons.set("item_ring", artCell(bracelet, [304,303,702,618]));
     draw.st = null; if (state === "inv") renderInv();

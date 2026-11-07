@@ -633,7 +633,7 @@ const MON = {
                stats: [null, { hp: 14, atk: 6, def: 0, exp: 20 }, { hp: 22, atk: 9,  def: 1, exp: 50 }] },   // ふらふら気まぐれに飛ぶ
   kinokoro:  { name: "キノコロ", desc: "水玉の傘のキノコ。攻撃してくる時、3 割の確率で胞子をまき、吸いこむと 2 ターン眠る。",   hp: 16, atk: 4, def: 1, exp: 11, ai: "spore",
                stats: [null, { hp: 30, atk: 4, def: 2, exp: 25 }, { hp: 52, atk: 6,  def: 3, exp: 60 }] },   // 殴ると胞子で眠らせることがある
-  yumi:      { name: "ユミトカゲ", desc: "弓を持ったトカゲ。まっすぐ・斜めに並んで間に何もなければ、どこからでも矢を撃ってくる。倒すと矢を落とすことがある。", hp: 14, atk: 4, def: 1, exp: 12, ai: "archer",
+  yumi:      { name: "ユミトカゲ", desc: "弓を持ったトカゲ。同じ部屋で姿を見つけると矢を撃つ。通路の遠くからは撃たない。倒すと矢を落とすことがある。", hp: 14, atk: 4, def: 1, exp: 12, ai: "archer",
                stats: [null, { hp: 20, atk: 6, def: 1, exp: 28 }, { hp: 32, atk: 9, def: 2, exp: 70 }] },   // 離れていると矢を撃つ
   sabi:      { name: "サビムシ", desc: "さび色の甲羅の虫。隣にいると錆びる液を吐きかけ、当たると武器か盾が錆びることがある（金箔の装備は錆びない）。",   hp: 18, atk: 3, def: 3, exp: 14, ai: "rust",
                stats: [null, { hp: 28, atk: 5, def: 4, exp: 32 }, { hp: 44, atk: 7, def: 6, exp: 80 }] },   // 当たると装備が錆びる
@@ -642,7 +642,7 @@ const MON = {
   wana:      { name: "ワナバシリ", desc: "大きな鼻のモグラ。部屋の中を歩きながら、ときどき足元にわなを埋めていく（通路では作らない。作れる数に限りがある）。",
                hp: 12, atk: 3, def: 1, exp: 10, ai: "trapper",
                stats: [null, { hp: 18, atk: 5, def: 2, exp: 24 }, { hp: 28, atk: 7, def: 3, exp: 60 }] },
-  tsubo:     { name: "ツボカブリ", desc: "壺を背負ったヤドカリ。殴られると壺に引っこみ、しばらく何をしても効かない。",
+  tsubo:     { name: "ツボカブリ", desc: "古い壺を被った煤色の小鬼。殴られると壺に引っこみ、しばらく攻撃が効かない。",
                hp: 14, atk: 4, def: 2, exp: 16, ai: "shell",
                stats: [null, { hp: 28, atk: 7, def: 3, exp: 36 }, { hp: 42, atk: 10, def: 5, exp: 90 }] },
   nise:      { name: "ニセモノ", desc: "道具に化けている宝箱の魔物。拾おうとしたり、たたいたりすると正体を現して襲ってくる。",
@@ -660,7 +660,7 @@ const MON = {
   banjin:    { name: "宝玉の番人", desc: "最下層で宝玉を守る石の巨人。動きは遅いが一撃が重い。近くにいると、ときどき地面を踏み鳴らす（4 マス以内なら壁越しでも届き、防具では防げない）。HP が半分になると手下を 2 匹呼ぶ。",
                hp: 150, atk: 13, def: 7, exp: 400, ai: "boss", boss: true, big: true, slow: true,
                stats: [null, { hp: 220, atk: 17, def: 9, exp: 700 }, { hp: 300, atk: 22, def: 12, exp: 1200 }] },
-  kiba:      { name: "キバウオ", desc: "水路にひそむ牙の魚。水の中も泳いで渡り、水にもぐっている間は剣が届かない（矢や投げた物は当たる）。水の中から噛みついてくる。",
+  kiba:      { name: "キバウオ", desc: "短い脚で床を歩く牙の魚。水の中も泳いで渡り、水中では剣が届かない（矢や投げた物は当たる）。",
                hp: 12, atk: 5, def: 1, exp: 18, ai: "swim",
                stats: [null, { hp: 22, atk: 8, def: 2, exp: 40 }, { hp: 32, atk: 10, def: 3, exp: 95 }] },
   hibachi:   { name: "ヒバチ", desc: "火の山にすむ、炎を噴く鉄の鉢。まっすぐ・斜めに並ぶと 3 マス先まで火を吹く（防具では防げない）。溶岩の上も平気で歩く。",
@@ -699,7 +699,7 @@ const TIERS = {
                     { name: "ヤミメ",         abil: ["fast", "beam"],                  desc: "2 回動く。離れていても目から光線を撃つ" }],
   kinokoro:  [null, { name: "ドクキノコロ", abil: ["poison"],                          desc: "胞子が 5 割で、おなかも減る" },
                     { name: "オオキノコロ",   abil: ["poison", "spore2", "counterspore"], desc: "2 マス先へ胞子を吹き、殴っても胞子が出る。3 ターン眠る" }],
-  yumi:      [null, { name: "トオヤトカゲ", abil: [],                                  desc: "矢が強くなる" },
+  yumi:      [null, { name: "トオヤトカゲ", abil: [],                                  desc: "弓を持ったトカゲ。同じ部屋で姿を見つけると矢を撃つ。通路の遠くからは撃たない。倒すと矢を落とすことがある。" },
                     { name: "テツヤトカゲ",   abil: [],                                desc: "鉄の矢を撃ち、さらに強い" }],
   sabi:      [null, { name: "サビクイ",     abil: [],                                  desc: "錆びる確率が 5 割になる" },
                     { name: "サビノヌシ",     abil: ["counterrust"],                   desc: "錆びる確率が 7 割。殴った武器まで錆びることがある" }],
@@ -707,7 +707,7 @@ const TIERS = {
                     { name: "ガツガツ",       abil: ["eatfood", "phase"],              desc: "壁の中を通り抜けて近づいてくる" }],
   wana:      [null, { name: "ワナダイク",   abil: [], desc: "作れるわなが 3 つになる" },
                     { name: "ワナシショウ",   abil: [], desc: "作れるわなが 4 つ。腐敗・錆のわなも作る" }],
-  tsubo:     [null, { name: "ツボヨロイ",   abil: [], desc: "強くなる" },
+  tsubo:     [null, { name: "ツボヨロイ",   abil: [], desc: "古い壺を被った煤色の小鬼。殴られると壺に引っこみ、しばらく攻撃が効かない。" },
                     { name: "ツボオウ",       abil: [], desc: "引っこむ確率が 5 割になる" }],
   nise:      [null, { name: "ニセタカラ",   abil: [], desc: "強くなる" },
                     { name: "ニセオウ",       abil: [], desc: "さらに強い" }],
@@ -719,7 +719,7 @@ const TIERS = {
                     { name: "ヤミボウズ",     abil: [], desc: "さらに強い" }],
   banjin:    [null, { name: "宝玉の守護神",   abil: [],        desc: "黒曜石の体。強くなる" },
                     { name: "宝玉の大守護神", abil: ["quick"], desc: "黄金の体。ふつうの速さで動く" }],
-  kiba:      [null, { name: "オオキバ",   abil: [],         desc: "強くなる" },
+  kiba:      [null, { name: "オオキバ",   abil: [],         desc: "短い脚で床を歩く牙の魚。水の中も泳いで渡り、水中では剣が届かない（矢や投げた物は当たる）。" },
                     { name: "ヌシウオ",   abil: ["double"], desc: "1 回に 2 度噛みつく" }],
   hibachi:   [null, { name: "オニビバチ",   abil: [],          desc: "紫の鬼火。火の息が強くなる" },
                     { name: "ゴウカバチ",   abil: ["farfire"], desc: "青い業火。火の息が 5 マス先まで届き、とても熱い" }],
@@ -990,7 +990,7 @@ const ITEMS = {
   pot_heal: { cat: "壺", name: "回復の壺", desc: "道具を 3 つまで入れておける。階を降りるたびに、中の薬草が 1 つ いやし草 に育つ。中身を出すには投げて割る。" },
   ring_regen: { cat: "腕輪", name: "再生の腕輪", desc: "装備していると HP の回復が 3 倍速くなるが、おなかも減りやすくなる。" },
   ring_thief: { cat: "腕輪", name: "盗賊よけの腕輪", desc: "装備していると、敵に持ち物を盗まれない。" },
-  gold:     { cat: "お金", name: "銀貨", desc: "拾うと所持金になる。店で道具を買える。" },
+  gold:     { cat: "お金", name: "金貨", desc: "拾うと所持金になる。店で道具を買える。" },
   pot:      { cat: "壺", name: "保存の壺", desc: "道具を 3 つまで入れておける。「のぞく」で中を見て取り出せる。" },
 };
 const CAT_ORDER = ["武器", "盾", "腕輪", "矢", "草", "食料", "魔導書", "杖", "壺"];
@@ -1040,7 +1040,7 @@ function itemName(o) {
   if (o.contents) n += `[${3 - o.contents.length}]`;
   if (o.count !== undefined) n += ` ${o.count}本`;
   if (o.plated) n += "〔金〕";
-  if (o.kind === "gold") n = `銀貨 ${o.amount} 枚`;
+  if (o.kind === "gold") n = `金貨 ${o.amount} 枚`;
   if (o.shop || o.unpaid) n += `（${priceOf(o)} 枚${o.unpaid ? "・未払い" : ""}）`;
   if (o.forSale) n += `（売値 ${sellPriceOf(o)} 枚）`;
   if (o === player.weapon || o === player.shield || o === player.arrow || o === player.ring) n = "Ｅ " + n;
@@ -1587,7 +1587,7 @@ function newFloor() {
   }
   state = "play";
   log(floor < LAST_FLOOR ? `${player.name}は地下 ${floor} 階に降り立った。` : `地下 ${floor} 階。どこかに「はじまりの宝玉」があるはずだ…`);
-  if (monsters.some(m => m.kind === "banjin")) log("重い足音がする…　宝玉の番人がいるようだ。");
+  const guardian=monsters.find(monster=>monster.kind==="banjin");if(guardian)log(`重い足音がする…　${guardian.name}がいるようだ。`);
   updateSeen();
   saveGame();
 }
@@ -1602,6 +1602,7 @@ function placeGuardian(g) {
   if (!near) return;
   const boss=makeMonster("banjin",1,near.x,near.y);
   boss.finalGuardian=true;boss.variant=LAST_FLOOR;
+  if(LAST_FLOOR===30)boss.name="宝玉の封印者";
   monsters.push(boss);
 }
 // ---- デバッグ用の階: 小部屋 4 つを 2×2 に並べて通路でつなぐ。全種類の道具とわなを置く ----
@@ -1648,7 +1649,7 @@ function dbgList(tab) {
   if (tab === 0) return Object.keys(MON).filter(k => !MON[k].npc).flatMap(k => (k === "banjin" ? [1] : [1, 2, 3]).map(t => ({ label: k === "banjin" ? MON[k].name + "（ボス）" : `${t === 1 ? MON[k].name : TIERS[k][t - 1].name}（Lv${t}）`, kind: k, tier: t })));
   if (tab === 1) return Object.keys(ITEMS).map(k => ({ label: ITEMS[k].name, kind: k }));
   if (tab === 2) return Object.keys(TRAPS).map(k => ({ label: TRAPS[k].name, kind: k }));
-  return [{ label: "この部屋を店にする", kind: "shop" }, { label: "この部屋をモンスターハウスにする", kind: "house" }, { label: "銀貨 +1000", kind: "money" }, { label: "仲間を呼ぶ", kind: "ally" }];
+  return [{ label: "この部屋を店にする", kind: "shop" }, { label: "この部屋をモンスターハウスにする", kind: "house" }, { label: "金貨 +1000", kind: "money" }, { label: "仲間を呼ぶ", kind: "ally" }];
 }
 function dbgPlace(e) {
   const [dx, dy] = player.dir, x = player.x + dx, y = player.y + dy;
@@ -1662,7 +1663,7 @@ function dbgPlace(e) {
     items = items.filter(i => !(i.x === x && i.y === y)); items.push({ ...newItem(e.kind), x, y });
     sparks({ x, y }, "#a0e0ff", 8, 0.04); log(`${ITEMS[e.kind].name}を置いた。`);
   } else if (dbgm.tab === 3) {
-    if (e.kind === "money") { player.gold += 1000; log("銀貨が 1000 枚ふえた。"); }
+    if (e.kind === "money") { player.gold += 1000; log("金貨が 1000 枚ふえた。"); }
     if (e.kind === "ally") { if (!walkable(x, y) || occupied(x, y)) { log("目の前に置けない。"); return; }
       const sp = OTHER(chosen); ally = anim({ x, y, sprite: sp, kind: sp, name: NAME_OF[sp], hp: 20, maxhp: 20, joined: false, dir: [-dx, -dy], steps: 0 }); joinAlly(); }
     if (e.kind === "shop") { const r = roomAt(player.x, player.y); if (!r) { log("部屋の中で使ってね。"); return; } makeShop(r); log("この部屋が店になった。"); }
@@ -1783,7 +1784,7 @@ function playerMove(dx, dy, noPick) {
 }
 function pickUp(it) {
   if (it.kind === "gold") {
-    items = items.filter(i => i !== it); player.gold += it.amount; log(`銀貨を ${it.amount} 枚拾った。（${player.gold} 枚）`);
+    items = items.filter(i => i !== it); player.gold += it.amount; log(`金貨を ${it.amount} 枚拾った。（${player.gold} 枚）`);
     fxStep(() => { sfx("coin"); sparks(player, "#ffffff", 10, 0.04, 0.02); popup(player, `+${it.amount}`, "#e8ecf0"); }, 150); return true;
   }
   delete it.forSale;
@@ -1889,7 +1890,7 @@ function kill(m, by) {
   }
   monsters = monsters.filter(x => x !== m);
   if(m.kind === "banjin" && m.finalGuardian && m.variant===30){
-    goal=nearFree(m.x,m.y);log(goal?"番人が「はじまりの宝玉」を落とした！":"宝玉は置き場所がなく消えてしまった…");
+    goal=nearFree(m.x,m.y);log(goal?`${m.name}が「はじまりの宝玉」を落とした！`:"宝玉は置き場所がなく消えてしまった…");
     fxStep(()=>{ring(m,"#ffe090",1.6,600);sfx("special");},200);
   }
   if (by && by !== player) {
@@ -2501,7 +2502,7 @@ function drawDecor(d, X, Y) {     // 草むらと小石。小さな影を付け�
 }
 // 道具の絵は種類ごとに 1 つ（見た目で正体が分からないように）
 const CAT_ICON = { "草": "herb", "食料": "rice", "武器": "club", "盾": "buckler", "腕輪": "ring", "矢": "arrow", "魔導書": "book", "杖": "staff", "壺": "pot", "お金": "coin" };
-const iconOf = k => CAT_ICON[ITEMS[k].cat] || k;
+const iconOf = k => k === "ar_stone" ? "ar_stone" : CAT_ICON[ITEMS[k].cat] || k;
 // わな: 床にはめこんだ石板（ふちに光と影）に、種類ごとの絵。1 単位 = 2 ドット、石板は 18×18 単位
 const TRAP_ICON = {
   spike(px) {                           // 3 本の鉄のトゲ
@@ -2847,10 +2848,10 @@ function draw(now = performance.now()) {
     }
     else if (flying.kind.startsWith("ar_")) {
       ctx.save(); ctx.translate(sx(fx) + 32, sy(fy) + 32); ctx.rotate(Math.atan2(flying.ty - flying.y, flying.tx - flying.x) + Math.PI / 4);
-      ctx.drawImage(IMG["item_" + (flying.kind === "ar_stone" ? "ar_stone" : "arrow")], -16, -16, 32, 32); ctx.restore();
+      ctx.drawImage(itemArt(flying.kind), -16, -16, 32, 32); ctx.restore();
     }
     else { ctx.save(); ctx.translate(sx(fx) + 32, sy(fy) + 32); ctx.rotate((flying.p || 0) * Math.PI * 4);   // 投げた道具は回りながら飛ぶ
-      ctx.drawImage(IMG["item_" + iconOf(flying.kind)], -16, -16, 32, 32); ctx.restore(); }
+      ctx.drawImage(itemArt(flying.kind), -16, -16, 32, 32); ctx.restore(); }
   }
   // 稲妻（画面の上から落ちるギザギザの線）
   bolts = bolts.filter(b => now - b.t0 < 260);
@@ -2914,7 +2915,7 @@ function draw(now = performance.now()) {
   if (equipFx && now - equipFx.t0 < 700) {
     const k = (now - equipFx.t0) / 700;
     ctx.globalAlpha = k < 0.8 ? 1 : (1 - k) / 0.2;
-    ctx.drawImage(IMG["item_" + iconOf(equipFx.kind)], sx(player.rx) + 12, sy(player.ry) - 30 - k * 10, 40, 40); ctx.globalAlpha = 1;
+    ctx.drawImage(itemArt(equipFx.kind), sx(player.rx) + 12, sy(player.ry) - 30 - k * 10, 40, 40); ctx.globalAlpha = 1;
   }
   // 眠っている敵と主人公の上に Zz
   ctx.font = "bold 16px monospace"; ctx.textAlign = "center";
@@ -3009,7 +3010,7 @@ function draw(now = performance.now()) {
     if (ctx.measureText(head).width > w - 40) ctx.font = "bold 22px monospace";        // 長い倒され方は字を小さく
     ctx.fillText(head, cv.width / 2, y0 + 52);
     ctx.font = "17px monospace"; ctx.fillStyle = "#e8e0d0";
-    ctx.fillText(`${player.name}　Lv ${player.lv}　地下 ${floor} 階　${turn} ターン　銀貨 ${player.gold} 枚`, cv.width / 2, y0 + 98);
+    ctx.fillText(`${player.name}　Lv ${player.lv}　地下 ${floor} 階　${turn} ターン　金貨 ${player.gold} 枚`, cv.width / 2, y0 + 98);
     ctx.fillText(`持ち物 ${player.inv.length} 個　攻 ${atkTotal()}　防 ${defTotal()}　力 ${player.str}/${player.strMax}`, cv.width / 2, y0 + 128);
     ctx.font = "16px monospace"; ctx.fillStyle = "#e8c040"; ctx.fillText(inputHint("R でタイトルへ", "下の「タイトルへ戻る」をタップ"), cv.width / 2, y0 + 176); ctx.textAlign = "left";
   }
