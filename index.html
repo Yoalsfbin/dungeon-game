@@ -2826,7 +2826,7 @@ function drawBigMap() {           // 周りを見る: フロア全体の地図�
   if (stairs.x >= 0 && (seen[stairs.y][stairs.x] || lightAll)) dot(stairs.x, stairs.y, "#ffffff");
   if (goal && (seen[goal.y][goal.x] || lightAll)) dot(goal.x, goal.y, "#ffe060");
   for (const t of traps) if (t.seen) dot(t.x, t.y, TRAPS[t.kind].color);
-  for (const it of items) if (lightAll || visible(it.x, it.y)) dot(it.x, it.y, "#60e0ff");
+  for (const it of items) if (lightAll || seen[it.y][it.x]) dot(it.x, it.y, "#60e0ff");
   for (const m of monsters) if (visible(m.x, m.y) && !m.disguise && !(m.ai === "shadow" && dist(m, player) > 1)) dot(m.x, m.y, "#f04040");
   if (ally && ally.joined) dot(ally.x, ally.y, "#80f080");
   dot(player.x, player.y, "#f0e040");
@@ -2839,7 +2839,7 @@ function drawMinimap() {
     if (!seen[y][x] || isWallTile(map[y][x])) continue;
     ctx.fillStyle = "#3a6ad0aa"; ctx.fillRect(x0 + x * s, y0 + y * s, s, s);
   }
-  if (lightAll) for (const it of items) { ctx.fillStyle = "#60e0ff"; ctx.fillRect(x0 + it.x * s, y0 + it.y * s, s, s); }
+  for (const it of items) if (lightAll || seen[it.y][it.x]) { ctx.fillStyle = "#60e0ff"; ctx.fillRect(x0 + it.x * s, y0 + it.y * s, s, s); }
   if (stairs.x >= 0 && (seen[stairs.y][stairs.x] || lightAll)) { ctx.fillStyle = "#fff"; ctx.fillRect(x0 + stairs.x * s, y0 + stairs.y * s, s, s); }
   if (goal && (seen[goal.y][goal.x] || lightAll)) { ctx.fillStyle = "#ffe060"; ctx.fillRect(x0 + goal.x * s - 1, y0 + goal.y * s - 1, s + 2, s + 2); }
   for (const m of monsters) if (visible(m.x, m.y) && !m.disguise && !(m.ai === "shadow" && dist(m, player) > 1)) { ctx.fillStyle = "#f04040"; ctx.fillRect(x0 + m.x * s, y0 + m.y * s, s, s); }
@@ -3009,7 +3009,6 @@ function feetOptions() {
     opts.push({ label: "交換", off: !player.inv.length, run: () => {
       if (!player.inv.length) return false;
       menu.swap = it; menu.sub = null; menu.cur = feetLabel() ? 1 : 0; renderInv(); return false; } });
-    opts.push({ label: "説明", run: () => { menu.desc = known.has(it.kind) ? ITEMS[it.kind].desc : "まだ正体が分からない。"; renderInv(); return false; } });
   } else if (onStairs()) {
     opts.push({ label: "降りる", run: () => { hideInv(); descend(); return "noturn"; } });
   } else {
@@ -3063,7 +3062,6 @@ function itemOptions(o, idx, ground = false) {
     if (pot.kind === "pot_ident" && !known.has(o.kind)) { known.add(o.kind); log(`それは${ITEMS[o.kind].name}だった。`); }
     return true; } });
   if (!known.has(o.kind)) opts.push({ label: "名前をつける", run: () => { openNaming(o); return "noturn"; } });
-  opts.push({ label: "説明", run: () => { menu.desc = known.has(o.kind) ? D.desc : unknownText; renderInv(); return false; } });
   return opts;
 }
 function showInv() { state = "inv"; menu = { cur: 0, sub: null, desc: null, pot: null, swap: null }; invEl.style.display = "flex"; renderInv(); }
