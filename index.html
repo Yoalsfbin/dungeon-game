@@ -3176,43 +3176,41 @@ function drawTitle(now = performance.now()) {
   ctx.textAlign = "center";
   ctx.font = "bold 30px monospace"; ctx.lineWidth = 5; ctx.strokeStyle = "#000";
   const title = titleConfirm ? "記録を上書きします。同じキャラをもう一度選ぶと開始" : dbgPick ? "デバッグモード：主人公をえらぶ" : "主人公をえらぶ";
-  drawTitleLogo(ctx,76,8,W-152,76);
-  ctx.font=`bold ${titleConfirm?17:20}px monospace`;ctx.strokeText(title,W/2,107);ctx.fillStyle=titleConfirm?"#ff9080":"#e8c040";ctx.fillText(title,W/2,107);
+  drawTitleLogo(ctx,100,6,W-200,60);
+  ctx.font=`bold ${titleConfirm?17:20}px monospace`;ctx.strokeText(title,W/2,92);ctx.fillStyle=titleConfirm?"#ff9080":"#e8c040";ctx.fillText(title,W/2,92);
   [["viking", "1", "ヨルン", "北の雪国の見習い戦士"], ["ranger", "2", "ラティ", "南の密林の見回り役"]].forEach(([k, key, name, sub], i) => {
-    const cx = W / 2 + (i ? 170 : -170), base = 390, focused=titleFocus===k;
+    const cx = W * (i ? .75 : .25), base = 452, focused=titleFocus===k;
     ctx.save();ctx.globalAlpha=focused?1:.32;
     // 上からのあかりと、石の台
-    const lg = ctx.createRadialGradient(cx, base - 40, 10, cx, base - 40, 150); lg.addColorStop(0, "rgba(255,200,120,0.28)"); lg.addColorStop(1, "rgba(255,160,80,0)");
-    ctx.fillStyle = lg; ctx.fillRect(cx - 160, base - 200, 320, 300);
+    const lg = ctx.createRadialGradient(cx, base - 100, 10, cx, base - 100, 205); lg.addColorStop(0, "rgba(255,200,120,0.28)"); lg.addColorStop(1, "rgba(255,160,80,0)");
+    ctx.fillStyle = lg; ctx.fillRect(cx - 200, base - 350, 400, 400);
     ctx.fillStyle = "#3a3028"; ctx.beginPath(); ctx.ellipse(cx, base + 8, 78, 20, 0, 0, 7); ctx.fill();
     ctx.fillStyle = "#5a4c3e"; ctx.beginPath(); ctx.ellipse(cx, base, 78, 18, 0, 0, 7); ctx.fill();
     ctx.fillStyle = "#7a6a58"; ctx.beginPath(); ctx.ellipse(cx, base - 2, 70, 13, 0, 0, 7); ctx.fill();
     ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.beginPath(); ctx.ellipse(cx, base - 4, 34, 8, 0, 0, 7); ctx.fill();
     const character=k==="viking"?"jorn":"rati",portrait=heroPortraits.get(character);
     if(portrait){
-      const [x,y,width,height]=HERO_PORTRAIT_RECTS[character],scale=Math.min(332/width,278/height)*(focused?1:.97);
+      const [x,y,width,height]=HERO_PORTRAIT_RECTS[character],scale=Math.min(390/width,350/height)*(focused?1:.97);
       ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(portrait,x,y,width,height,cx-width*scale/2,base-height*scale,width*scale,height*scale);ctx.restore();
-    }else if(!drawHero(ctx,{sprite:k,dir:[-1,1]},now,cx,base,210)){
+    }else if(!drawHero(ctx,{sprite:k,dir:[-1,1]},now,cx,base,300)){
       ctx.font="16px monospace";ctx.fillStyle="#c9bea4";ctx.fillText(heroAssetError?"画像を読み込めません":"読み込み中…",cx,base-60);
     }
     ctx.restore();
     // 名札
-    const bx = cx - 120, by = base + 12;
-    ctx.fillStyle = "rgba(10,14,42,0.92)"; ctx.fillRect(bx, by, 240, 64);
-    ctx.strokeStyle = focused?"#f4d978":"#746f6c"; ctx.lineWidth = 3; ctx.strokeRect(bx + 1.5, by + 1.5, 237, 61); ctx.lineWidth = 1; ctx.strokeRect(bx + 6.5, by + 6.5, 227, 51);
-    ctx.font = "bold 24px monospace"; ctx.fillStyle = focused?"#ffe08a":"#b0a99b"; ctx.fillText(pointerHelp() ? name : `${key}  ${name}`, cx, by + 28);
-    ctx.font = "15px monospace"; ctx.fillStyle = focused?"#e8deca":"#a09990"; ctx.fillText(sub, cx, by + 51);
+    const bx = cx - 120, by = base + 10;
+    ctx.fillStyle = "rgba(10,14,42,0.92)"; ctx.fillRect(bx, by, 240, 54);
+    ctx.strokeStyle = focused?"#f4d978":"#746f6c"; ctx.lineWidth = 3; ctx.strokeRect(bx + 1.5, by + 1.5, 237, 51); ctx.lineWidth = 1; ctx.strokeRect(bx + 5.5, by + 5.5, 229, 43);
+    ctx.font = "bold 24px monospace"; ctx.fillStyle = focused?"#ffe08a":"#b0a99b"; ctx.fillText(pointerHelp() ? name : `${key}  ${name}`, cx, by + 24);
+    ctx.font = "15px monospace"; ctx.fillStyle = focused?"#e8deca":"#a09990"; ctx.fillText(sub, cx, by + 45);
     const rec = readRecords()[k];
     if (rec&&!readSave()) { ctx.font = "13px monospace"; ctx.fillStyle = "#a89c88";
-      ctx.fillText(`${rec.plays} 回挑戦・クリア ${rec.clears} 回・最深 地下 ${rec.best} 階`, cx, by + 85); }
+      ctx.fillText(`${rec.plays} 回挑戦・クリア ${rec.clears} 回・最深 地下 ${rec.best} 階`, cx, by + 75); }
   });
   ctx.font = "15px monospace"; ctx.fillStyle = "#b8ac98";
-  ctx.fillText(inputHint("← → で選ぶ・Enterで開始　1 / 2でも開始　Kでキー設定", "キャラクターか下のボタンをタップして開始"), W / 2, H - 52);
+  ctx.fillText(inputHint("← → で選ぶ・Enterで開始　1 / 2でも開始　Kでキー設定", "キャラクターか下のボタンをタップして開始"), W / 2, H - 17);
   const sv = readSave();
   if (sv) { ctx.font = "bold 17px monospace"; ctx.fillStyle = "#ffe080";
-    ctx.fillText(`${inputHint("C でつづきから", "「つづきから」で再開")}（${sv.player.name}・地下 ${sv.floor} 階・Lv ${sv.player.lv}）`, W / 2, H - 80); ctx.font = "15px monospace"; }
-  ctx.fillStyle = dbgPick ? "#ff9080" : "#8a7e6c";
-  ctx.fillText(dbgPick ? inputHint("デバッグモードで始める（D で取り消し）", "デバッグ ON：キャラを選んで開始") : inputHint("D でデバッグモード", "デバッグは下のボタンで切り替え"), W / 2, H - 26);
+    ctx.fillText(`${inputHint("C でつづきから", "「つづきから」で再開")}（${sv.player.name}・地下 ${sv.floor} 階・Lv ${sv.player.lv}）`, W / 2, H - 40); ctx.font = "15px monospace"; }
   ctx.textAlign = "left";
 }
 
