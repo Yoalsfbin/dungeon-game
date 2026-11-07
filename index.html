@@ -101,6 +101,14 @@
   #log div:not(:last-child) { color:#b9c1da; }
   #log div:last-child { color:#fff5df; }
   #gameSurface { position:relative; width:100%; aspect-ratio:13 / 9; }
+  #wrap { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  #wrap input, #wrap textarea { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+  #inv { overscroll-behavior:contain; touch-action:manipulation; }
+  .menu-list { min-height:0; }
+  .menu-pager { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; }
+  .menu-pager button { min-width:44px; min-height:44px; padding:6px; background:#17204a; color:#fff2c6; border:1px solid #b4bddd; border-radius:5px; font:inherit; touch-action:manipulation; }
+  .menu-pager button:disabled { opacity:.35; }
+  .menu-pager span { font-size:12px; color:#c2cce5; }
   #wrap[data-screen="title"] #status, #wrap[data-screen="title"] #log { display:none; }
   #controlHint { grid-column:1 / -1; flex-basis:100%; margin:0; color:#d0c5a8; font-size:12px; line-height:1.5; }
   #controls[hidden], #pad[hidden] { display:none; }
@@ -114,6 +122,15 @@
     #wrap[data-screen="title"] #stage { grid-column:1; grid-row:1; }
     #wrap[data-screen="title"] #controls { grid-column:1; grid-row:2; }
     #stage { align-items:flex-start; }
+    #inv { position:fixed; top:var(--menu-top,64px) !important; left:6px !important; width:calc(100% - 12px); max-width:none; height:var(--menu-height,55dvh); max-height:none; overflow:hidden; flex-direction:column; flex-wrap:nowrap; z-index:20; }
+    #inv .win[data-pane] { width:100%; display:flex; flex-direction:column; overflow:hidden; min-height:0; flex:1; }
+    #inv .win[data-pane][data-inactive="true"] { display:none; }
+    #inv .win[data-pane] > h3 { flex-shrink:0; max-height:48px; overflow:hidden; font-size:14px; line-height:1.5; }
+    #inv .menu-list { flex:1; overflow:hidden; }
+    #inv .menu-list .row { height:40px; min-height:40px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:40px; }
+    #inv .win.desc { flex:none; width:100%; max-width:none; max-height:min(100px, calc(var(--menu-height) * .22)); overflow:auto; font-size:13px; line-height:1.5; }
+    #inv .win .hint { font-size:11px; max-height:32px; overflow:hidden; }
+    #inv .menu-pager { flex-shrink:0; margin-top:4px; }
     #log { height:104px; padding:8px 10px; font-size:13px; line-height:1.5; }
     #controls { max-height:44dvh; }
     #controls[data-screen="title"], #controls[data-screen="result"] { grid-template-columns:minmax(0,1fr); }
@@ -123,6 +140,8 @@
     #wrap { grid-template-rows:auto minmax(0,1fr) 84px; }
     #log { height:84px; font-size:12px; padding:4px 8px; }
     #controls { max-height:100%; }
+    #inv { width:calc(100% - 278px); }
+    #inv .win .hint { display:none; }
   }
 </style>
 </head>
@@ -3040,13 +3059,45 @@ function openMenu(o) { pm = { cur: 0, vis: 14, ...o }; state = "menu"; invEl.sty
 function closeMenu() { pm = null; invEl.style.display = "none"; if (state === "menu") state = "play"; }
 const ICON_URL = {};
 const iconURL = k => ICON_URL[k] || (ICON_URL[k] = IMG[k] ? IMG[k].toDataURL() : "");
+function menuRowLimit() {
+  const compact = matchMedia("(max-width:600px), (max-height:500px) and (orientation:landscape)").matches;
+  if (!compact) return 10;
+  const top = Math.max(6, document.getElementById("status").getBoundingClientRect().bottom + 4);
+  const controlsTop = document.getElementById("controls").getBoundingClientRect().top;
+  const bottom = controlsTop > top + 80 ? Math.min(innerHeight - 6, controlsTop - 6) : innerHeight - 6;
+  const height = Math.max(100, bottom - top);
+  invEl.style.setProperty("--menu-top", top + "px");
+  invEl.style.setProperty("--menu-height", height + "px");
+  return Math.max(1, Math.min(6, Math.floor((height - 260) / 40)));
+}
+function pageWindow(current, total, limit) {
+  const index = Math.max(0, Math.min(current, Math.max(0, total - 1)));
+  const pages = Math.max(1, Math.ceil(total / limit)), page = Math.floor(index / limit);
+  return { start:page * limit, end:Math.min(total, (page + 1) * limit), page, pages };
+}
+function pageArrows(key, page) {
+  if (page.pages <= 1) return "";
+  return `<div class="menu-pager"><button type="button" data-page="${key}" data-step="-1" aria-label="前のページ"${page.page === 0 ? " disabled" : ""}>◀</button><span>${page.page + 1} / ${page.pages}</span><button type="button" data-page="${key}" data-step="1" aria-label="次のページ"${page.page + 1 === page.pages ? " disabled" : ""}>▶</button></div>`;
+}
+function changeMenuPage(key, step) {
+  let cursor, count;
+  if (key === "menu" && state === "menu") { cursor = pm; count = pm.rows().length; }
+  else if (state === "inv" && key === "inventory") { cursor = menu; count = rows().length; }
+  else if (state === "inv" && key === "options" && menu.sub) { cursor = menu.sub; count = menu.sub.opts.length; }
+  else if (state === "inv" && key === "pot" && menu.pot) { cursor = menu.pot; count = menu.pot.o.contents.length; }
+  if (!cursor) return;
+  const limit = key === "menu" ? Math.min(pm.vis, menuRowLimit()) : menuRowLimit(), page = pageWindow(cursor.cur, count, limit);
+  cursor.cur = Math.max(0, Math.min(page.pages - 1, page.page + step)) * limit;
+  sfx("cursor");
+  if (state === "menu") renderMenu(); else renderInv();
+}
 function renderMenu() {
   const rows = pm.rows();
   pm.cur = Math.max(0, Math.min(pm.cur, rows.length - 1));
-  const top = Math.max(0, Math.min(pm.cur - Math.floor(pm.vis / 2), rows.length - pm.vis));
-  const list = rows.slice(top, top + pm.vis).map((r, i) => `<div class="row${!pm.noCursor && top + i === pm.cur ? " sel" : ""}${r.dim ? " dim" : ""}">`
+  const page = pageWindow(pm.cur, rows.length, Math.min(pm.vis, menuRowLimit()));
+  const list = rows.slice(page.start, page.end).map((r, i) => `<div data-index="${page.start + i}" class="row${!pm.noCursor && page.start + i === pm.cur ? " sel" : ""}${r.dim ? " dim" : ""}">`
     + (r.img ? `<img class="ic" src="${r.img}">` : "") + `${r.label}</div>`).join("") || `<div class="row dim">なし</div>`;
-  let html = `<div class="win${pm.wide ? " wide" : ""}"><h3>${pm.title()}</h3>${list}${pm.hint ? `<div class="hint">${pm.hint}</div>` : ""}</div>`;
+  let html = `<div class="win${pm.wide ? " wide" : ""}" data-pane="menu"><h3>${pm.title()}</h3><div class="menu-list">${list}</div>${pageArrows("menu", page)}${pm.hint ? `<div class="hint">${pm.hint}</div>` : ""}</div>`;
   const d = pm.desc && rows.length ? pm.desc(pm.cur) : null;
   if (d) html += `<div class="win desc">${d}</div>`;
   invEl.innerHTML = html;
@@ -3202,19 +3253,29 @@ function showInv() { state = "inv"; menu = { cur: 0, sub: null, desc: null, pot:
 function hideInv() { invEl.style.display = "none"; state = "play"; menu = null; }
 function renderInv() {
   const rs = rows();
+  const limit = menuRowLimit();
   menu.cur = Math.min(menu.cur, Math.max(0, rs.length - 1));
   const ic = o => `<img class="ic" src="${iconURL("item_" + iconOf(o.kind))}">`;   // 道具の種類の絵
-  const list = rs.length ? rs.map((r, i) => `<div class="row${i === menu.cur ? " sel" : ""}">${r.feet ? `【足元】${feetLabel()}` : ic(r.o) + itemName(r.o)}</div>`).join("")
+  const inventoryPage = pageWindow(menu.cur, rs.length, limit);
+  const list = rs.length ? rs.slice(inventoryPage.start, inventoryPage.end).map((r, index) => { const i = inventoryPage.start + index; return `<div data-index="${i}" class="row${i === menu.cur ? " sel" : ""}">${r.feet ? `【足元】${feetLabel()}` : ic(r.o) + itemName(r.o)}</div>`; }).join("")
                          : `<div class="row dim">なにも持っていない</div>`;
   const title = menu.swap ? `交換する道具を選ぶ` : `持ち物 ${player.inv.length}/10　<span class="dim">${inputHint("Tab: 整理", "整理ボタンで並べ替え")}</span>`;
-  let html = `<div class="win"><h3>${title}</h3>${list}</div>`;
-  if (menu.sub) html += `<div class="win">${menu.sub.opts.map((o, i) =>
-      `<div class="row${i === menu.sub.cur ? " sel" : ""}${o.off ? " dim" : ""}">${o.label}</div>`).join("")}</div>`;
+  let html = `<div class="win" data-pane="inventory" data-inactive="${!!(menu.sub || menu.pot)}"><h3>${title}</h3><div class="menu-list">${list}</div>${pageArrows("inventory", inventoryPage)}</div>`;
+  if (menu.sub) {
+    const optionsPage = pageWindow(menu.sub.cur, menu.sub.opts.length, limit);
+    html += `<div class="win" data-pane="options" data-inactive="${!!menu.pot}"><h3>どうする？</h3><div class="menu-list">${menu.sub.opts.slice(optionsPage.start, optionsPage.end).map((o, index) => {
+      const i = optionsPage.start + index;
+      return `<div data-index="${i}" class="row${i === menu.sub.cur ? " sel" : ""}${o.off ? " dim" : ""}">${o.label}</div>`;
+    }).join("")}</div>${pageArrows("options", optionsPage)}</div>`;
+  }
   if (menu.pot) {
     const c = menu.pot.o.contents;
+    const potPage = pageWindow(menu.pot.cur, c.length, limit);
     const potHint = menu.pot.o.kind === "pot" ? inputHint("Z で出す", "道具をタップで取り出す") : "中身を出すには投げて割る";
-    html += `<div class="win"><h3>${itemName(menu.pot.o)} の中（${potHint}）</h3>${c.length ? c.map((o, i) =>
-      `<div class="row${i === menu.pot.cur ? " sel" : ""}">${ic(o)}${itemName(o)}</div>`).join("") : `<div class="row dim">からっぽ</div>`}</div>`;
+    html += `<div class="win" data-pane="pot"><h3>${itemName(menu.pot.o)} の中（${potHint}）</h3><div class="menu-list">${c.length ? c.slice(potPage.start, potPage.end).map((o, index) => {
+      const i = potPage.start + index;
+      return `<div data-index="${i}" class="row${i === menu.pot.cur ? " sel" : ""}">${ic(o)}${itemName(o)}</div>`;
+    }).join("") : `<div class="row dim">からっぽ</div>`}</div>${pageArrows("pot", potPage)}</div>`;
   }
   if (menu.desc) html += `<div class="win desc">${menu.desc}</div>`;
   else { const d = peekDesc(rs); if (d) html += `<div class="win desc peek"><h3>${d.title}</h3>${d.text}</div>`; }
@@ -4100,20 +4161,27 @@ new ResizeObserver(fitGameSurface).observe(document.getElementById("stage"));
 window.addEventListener("resize", fitGameSurface);
 fitGameSurface();
 invEl.addEventListener("click", event => {
+  const arrow = event.target.closest("button[data-page]");
+  if (arrow) { if (!arrow.disabled) changeMenuPage(arrow.dataset.page, Number(arrow.dataset.step)); return; }
   const row = event.target.closest(".row");
   if (!row || !["inv", "menu"].includes(state)) return;
-  const siblings = [...row.parentElement.children].filter(element => element.classList.contains("row"));
-  const index = siblings.indexOf(row);
+  const pane = row.closest("[data-pane]");
+  if (!pane || !row.hasAttribute("data-index")) return;
+  const index = Number(row.dataset.index);
   if (state === "menu") {
-    if (!pm.noCursor) {
-      const top = Math.max(0, Math.min(pm.cur - Math.floor(pm.vis / 2), pm.rows().length - pm.vis));
-      pm.cur = top + index;
-    }
+    if (pm.noCursor) return;
+    pm.cur = index;
   } else if (menu.desc) { pressKey("Enter"); return; }
-  else if (menu.pot) { if (row.parentElement !== invEl.children[menu.sub ? 2 : 1]) return; menu.pot.cur = index; }
-  else if (menu.sub) { if (row.parentElement !== invEl.children[1]) return; menu.sub.cur = index; }
-  else menu.cur = index;
+  else if (menu.pot) { if (pane.dataset.pane !== "pot") return; menu.pot.cur = index; }
+  else if (menu.sub) { if (pane.dataset.pane !== "options") return; menu.sub.cur = index; }
+  else { if (pane.dataset.pane !== "inventory") return; menu.cur = index; }
   pressKey("Enter");
+});
+document.getElementById("wrap").addEventListener("contextmenu", event => {
+  if (!event.target.closest("input, textarea")) event.preventDefault();
+});
+window.addEventListener("resize", () => {
+  if (state === "inv") renderInv(); else if (state === "menu") renderMenu();
 });
 requestAnimationFrame(loop);
 </script>
