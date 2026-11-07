@@ -3175,11 +3175,12 @@ function drawTitle(now = performance.now()) {
   ctx.globalAlpha = 1;
   ctx.textAlign = "center";
   ctx.font = "bold 30px monospace"; ctx.lineWidth = 5; ctx.strokeStyle = "#000";
-  const title = dbgPick ? "デバッグモード：主人公をえらぶ" : "主人公をえらぶ";
+  const title = titleConfirm ? "記録を上書きします。同じキャラをもう一度選ぶと開始" : dbgPick ? "デバッグモード：主人公をえらぶ" : "主人公をえらぶ";
   drawTitleLogo(ctx,76,8,W-152,76);
-  ctx.font="bold 20px monospace";ctx.strokeText(title,W/2,107);ctx.fillStyle="#e8c040";ctx.fillText(title,W/2,107);
+  ctx.font=`bold ${titleConfirm?17:20}px monospace`;ctx.strokeText(title,W/2,107);ctx.fillStyle=titleConfirm?"#ff9080":"#e8c040";ctx.fillText(title,W/2,107);
   [["viking", "1", "ヨルン", "北の雪国の見習い戦士"], ["ranger", "2", "ラティ", "南の密林の見回り役"]].forEach(([k, key, name, sub], i) => {
-    const cx = W / 2 + (i ? 170 : -170), base = 320;
+    const cx = W / 2 + (i ? 170 : -170), base = 390, focused=titleFocus===k;
+    ctx.save();ctx.globalAlpha=focused?1:.32;
     // 上からのあかりと、石の台
     const lg = ctx.createRadialGradient(cx, base - 40, 10, cx, base - 40, 150); lg.addColorStop(0, "rgba(255,200,120,0.28)"); lg.addColorStop(1, "rgba(255,160,80,0)");
     ctx.fillStyle = lg; ctx.fillRect(cx - 160, base - 200, 320, 300);
@@ -3189,28 +3190,27 @@ function drawTitle(now = performance.now()) {
     ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.beginPath(); ctx.ellipse(cx, base - 4, 34, 8, 0, 0, 7); ctx.fill();
     const character=k==="viking"?"jorn":"rati",portrait=heroPortraits.get(character);
     if(portrait){
-      const [x,y,width,height]=HERO_PORTRAIT_RECTS[character],scale=Math.min(310/width,202/height);
+      const [x,y,width,height]=HERO_PORTRAIT_RECTS[character],scale=Math.min(332/width,278/height)*(focused?1:.97);
       ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(portrait,x,y,width,height,cx-width*scale/2,base-height*scale,width*scale,height*scale);ctx.restore();
     }else if(!drawHero(ctx,{sprite:k,dir:[-1,1]},now,cx,base,210)){
       ctx.font="16px monospace";ctx.fillStyle="#c9bea4";ctx.fillText(heroAssetError?"画像を読み込めません":"読み込み中…",cx,base-60);
     }
+    ctx.restore();
     // 名札
-    const bx = cx - 120, by = base + 36;
-    ctx.fillStyle = "rgba(10,14,42,0.92)"; ctx.fillRect(bx, by, 240, 74);
-    ctx.strokeStyle = "#e8e0c8"; ctx.lineWidth = 3; ctx.strokeRect(bx + 1.5, by + 1.5, 237, 71); ctx.lineWidth = 1; ctx.strokeRect(bx + 6.5, by + 6.5, 227, 61);
-    ctx.font = "bold 24px monospace"; ctx.fillStyle = "#e8c040"; ctx.fillText(pointerHelp() ? name : `${key}  ${name}`, cx, by + 34);
-    ctx.font = "15px monospace"; ctx.fillStyle = "#d8d0c0"; ctx.fillText(sub, cx, by + 58);
+    const bx = cx - 120, by = base + 12;
+    ctx.fillStyle = "rgba(10,14,42,0.92)"; ctx.fillRect(bx, by, 240, 64);
+    ctx.strokeStyle = focused?"#f4d978":"#746f6c"; ctx.lineWidth = 3; ctx.strokeRect(bx + 1.5, by + 1.5, 237, 61); ctx.lineWidth = 1; ctx.strokeRect(bx + 6.5, by + 6.5, 227, 51);
+    ctx.font = "bold 24px monospace"; ctx.fillStyle = focused?"#ffe08a":"#b0a99b"; ctx.fillText(pointerHelp() ? name : `${key}  ${name}`, cx, by + 28);
+    ctx.font = "15px monospace"; ctx.fillStyle = focused?"#e8deca":"#a09990"; ctx.fillText(sub, cx, by + 51);
     const rec = readRecords()[k];
-    if (rec) { ctx.font = "13px monospace"; ctx.fillStyle = "#a89c88";
-      ctx.fillText(`${rec.plays} 回挑戦・クリア ${rec.clears} 回・最深 地下 ${rec.best} 階`, cx, by + 96); }
+    if (rec&&!readSave()) { ctx.font = "13px monospace"; ctx.fillStyle = "#a89c88";
+      ctx.fillText(`${rec.plays} 回挑戦・クリア ${rec.clears} 回・最深 地下 ${rec.best} 階`, cx, by + 85); }
   });
   ctx.font = "15px monospace"; ctx.fillStyle = "#b8ac98";
-  ctx.fillText(inputHint("1 か 2 を押す（クリックでも可）　K でキー設定", "下のキャラクターボタンで冒険を始める"), W / 2, H - 52);
+  ctx.fillText(inputHint("← → で選ぶ・Enterで開始　1 / 2でも開始　Kでキー設定", "キャラクターか下のボタンをタップして開始"), W / 2, H - 52);
   const sv = readSave();
   if (sv) { ctx.font = "bold 17px monospace"; ctx.fillStyle = "#ffe080";
     ctx.fillText(`${inputHint("C でつづきから", "「つづきから」で再開")}（${sv.player.name}・地下 ${sv.floor} 階・Lv ${sv.player.lv}）`, W / 2, H - 80); ctx.font = "15px monospace"; }
-  if (sv && titleConfirm) { ctx.font = "bold 17px monospace"; ctx.fillStyle = "#ff9080";
-    ctx.fillText(inputHint(`つづきの記録は消えます。もう一度 ${titleConfirm === "viking" ? 1 : 2} を押すと新しく始めます`, "記録を上書きします。同じキャラをもう一度タップで開始"), W / 2, H - 106); ctx.font = "15px monospace"; }
   ctx.fillStyle = dbgPick ? "#ff9080" : "#8a7e6c";
   ctx.fillText(dbgPick ? inputHint("デバッグモードで始める（D で取り消し）", "デバッグ ON：キャラを選んで開始") : inputHint("D でデバッグモード", "デバッグは下のボタンで切り替え"), W / 2, H - 26);
   ctx.textAlign = "left";
@@ -3711,7 +3711,7 @@ let KEYS = Object.fromEntries(KEY_ACTIONS.map(([k, , d]) => [k, d]));
 try { const s = JSON.parse(localStorage.getItem("dungeon-keys") || "null"); if (s) KEYS = { ...KEYS, ...s }; } catch (e) {}
 const isKey = (act, low) => KEYS[act].includes(low);
 const keyName = k => ({ " ": "Space", shift: "Shift", enter: "Enter", control: "Ctrl", alt: "Alt" }[k] || k.toUpperCase());
-let keycfg = { cur: 0, wait: false }, titleConfirm = null;   // titleConfirm: もう一度押すと新しく始める主人公
+let keycfg = { cur: 0, wait: false }, titleConfirm = null, titleFocus="viking";   // titleConfirm: もう一度押すと新しく始める主人公
 function drawKeyConfig() {
   ctx.fillStyle = "#14100c"; ctx.fillRect(0, 0, cv.width, cv.height);
   const ROW = 26, x0 = 70, y0 = 16, w = cv.width - 140, hgt = 70 + KEY_ACTIONS.length * ROW + 44;     // 持ち物と同じ見た目の窓。行は画面に収まる高さ
@@ -3755,13 +3755,21 @@ window.addEventListener("blur", () => { held.clear(); arrows.clear(); });
 document.addEventListener("keydown", e => {
   if (state === "naming") return;                                 // 名前の入力中は文字入力にまかせる
   const key = e.key, low = key.toLowerCase();
-  if (DIRS[key] || ARROW[key] || key === " " || key === "5" || key === "." || (state === "play" && Object.values(KEYS).some(v => v.includes(low)))) e.preventDefault();
+  if (DIRS[key] || ARROW[key] || (key === " "&&!(state==="title"&&e.target?.tagName==="BUTTON")) || key === "5" || key === "." || (state === "play" && Object.values(KEYS).some(v => v.includes(low)))) e.preventDefault();
   held.add(low); if (ARROW[key]) arrows.add(key);
   if (state === "keys") { keyConfigKey(e); return; }
-  if (state === "title") { const who = { "1": "viking", "2": "ranger" }[key];
-                           if (who) chooseHero(who); else titleConfirm = null;
-                           if (low === "c") loadGame(); if (low === "k") { state = "keys"; keycfg = { cur: 0, wait: false }; }
-                           if (low === "d") dbgPick = !dbgPick; return; }
+  if (state === "title") {
+    if(key==="ArrowLeft"||key==="ArrowRight"){
+      focusTitleHero(key==="ArrowLeft"?"viking":"ranger");
+      if(e.target?.tagName==="BUTTON")heroButtons[titleFocus==="viking"?0:1].focus();
+      return;
+    }
+    const who={"1":"viking","2":"ranger"}[key];
+    if(who)chooseHero(who);
+    else if((key==="Enter"||key===" ")&&e.target?.tagName!=="BUTTON"){e.preventDefault();chooseHero(titleFocus);}
+    if(low==="c")loadGame();if(low==="k"){state="keys";keycfg={cur:0,wait:false};}
+    if(low==="d")dbgPick=!dbgPick;return;
+  }
   if (low === "r") { if ((state === "dead" || state === "clear") && !busy()) returnToTitle(); return; }
   if (state === "dead" || state === "clear") return;
   if (state === "menu") { menuKey(e); return; }
@@ -3869,6 +3877,10 @@ function dashStep() {
   if (onStairs()) askStairs();
   if (stop || state !== "play") dash = null;
 }
+function focusTitleHero(who){if(titleFocus!==who){titleFocus=who;titleConfirm=null;}}
+function pointTitleHero(event){const r=cv.getBoundingClientRect();return event.clientX-r.left<r.width/2?"viking":"ranger";}
+cv.addEventListener("pointermove",event=>{if(state==="title"&&event.pointerType!=="touch")focusTitleHero(pointTitleHero(event));});
+cv.addEventListener("pointerdown",event=>{if(state==="title")focusTitleHero(pointTitleHero(event));});
 cv.addEventListener("click", e => {
   if (state !== "title") return;
   const r = cv.getBoundingClientRect();
@@ -3880,6 +3892,7 @@ cv.addEventListener("click", e => {
  * @param {"viking"|"ranger"} who 選んだ主人公
  */
 function chooseHero(who) {
+  focusTitleHero(who);
   if (readSave() && titleConfirm !== who) { titleConfirm = who; return; }
   titleConfirm = null; start(who);
 }
@@ -4341,6 +4354,7 @@ const backButton = addControl(actions, "戻る", () => {
 });
 backButton.classList.add("primary");
 const heroButtons = ["viking", "ranger"].map(who => addControl(actions, NAME_OF[who] + "で始める", () => { if (state === "title") chooseHero(who); }));
+heroButtons.forEach((button,index)=>{for(const event of ["focus","pointerenter"])button.addEventListener(event,()=>{if(state==="title")focusTitleHero(index===0?"viking":"ranger");});});
 const titleDebugButton = addControl(actions, "デバッグ OFF", () => { if (state === "title") dbgPick = !dbgPick; });
 const difficultyButton=addControl(actions,"難易度設定",()=>{if(state === "title")openDifficulty();});
 const keySettingsButton = addControl(actions, "キー設定", () => { if (state === "title") { state = "keys"; keycfg = { cur:0, wait:false }; } });
@@ -4394,7 +4408,7 @@ function returnToTitle() {
 }
 let controlsState = null;
 function updateControlVisibility() {
-  const token = [state, dbgPick, debug, titleConfirm, pointerMode, !!(pm && pm.onSide), heroAssetError, pointerHelp()].join("|");
+  const token = [state, dbgPick, debug, titleConfirm, titleFocus, pointerMode, !!(pm && pm.onSide), heroAssetError, pointerHelp()].join("|");
   if (controlsState !== token) {
     controlsState = token;
     const isTitle = state === "title", titleLayout=isTitle||(state==="menu"&&pm?.returnState==="title"), isResult = state === "dead" || state === "clear";
@@ -4412,6 +4426,7 @@ function updateControlVisibility() {
     heroButtons.forEach((button, index) => {
       const who = index === 0 ? "viking" : "ranger";
       button.hidden = !isTitle;
+      if(titleFocus===who)button.classList.add("primary");else button.classList.remove("primary");
       button.textContent = NAME_OF[who] + (titleConfirm === who ? "で上書きして開始" : "で始める");
     });
     titleDebugButton.hidden = !isTitle;
