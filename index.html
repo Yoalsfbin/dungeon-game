@@ -39,6 +39,7 @@
   #controls button { min-height:44px; min-width:44px; border:1px solid #9a8c78; border-radius:6px; background:#241d19; color:#f0e6d0; font:inherit; padding:8px; touch-action:manipulation; cursor:pointer; }
   #controls button:active, #controls button[aria-pressed="true"] { background:#625021; }
   #pad { display:grid; grid-template-columns:repeat(3,48px); gap:4px; }
+  #pad button { touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   #actions { display:flex; flex:1; flex-wrap:wrap; gap:6px; }
   #actions > button { flex:1 0 40%; }
   #actions [hidden] { display:none !important; }
@@ -46,6 +47,15 @@
   #actions summary { min-height:44px; padding:10px; border:1px solid #635548; border-radius:6px; cursor:pointer; touch-action:manipulation; }
   #actions .control-options { display:flex; flex-wrap:wrap; gap:6px; padding-top:6px; }
   #actions .control-options button { flex:1 0 40%; }
+  .pointer-help { display:none; }
+  @media (max-width:600px), (pointer:coarse) {
+    .keyboard-help { display:none; }
+    .pointer-help { display:block; }
+  }
+  html[data-input="pointer"] .keyboard-help { display:none; }
+  html[data-input="pointer"] .pointer-help { display:block; }
+  html[data-input="keyboard"] .keyboard-help { display:block; }
+  html[data-input="keyboard"] .pointer-help { display:none; }
   #status { flex-wrap:wrap; white-space:normal; }
   #inv { max-width:calc(100% - 24px); max-height:90%; overflow:auto; flex-wrap:wrap; gap:6px; }
   .win .row { cursor:pointer; }
@@ -64,12 +74,35 @@
     #status, #log, #help { grid-column:1 / -1; }
     #controls { margin:0; }
   }
+  canvas#view { height:auto; }
+  @media (max-width:600px), (max-height:500px) and (orientation:landscape) {
+    #wrap { height:100svh; height:100dvh; margin:0 auto; padding: max(4px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left)); display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr) 54px auto; gap:4px; }
+    #status { gap:4px 8px; font-size:11px; padding:4px 6px; }
+    #stage { min-height:0; min-width:0; display:flex; justify-content:center; align-items:center; background:#000; }
+    canvas#view { width:100%; height:100%; object-fit:contain; border:0; }
+    #log { height:54px; font-size:11px; padding:3px 6px; }
+    #controls { margin:0; display:grid; grid-template-columns:140px minmax(0,1fr); gap:6px; max-height:42dvh; overflow:auto; }
+    #pad { grid-template-columns:repeat(3,44px); gap:3px; }
+    #pad button { padding:4px 1px; font-size:12px; }
+    #actions { min-width:0; gap:4px; }
+    #actions > button, #actions details { flex:1 0 40%; }
+    #actions button, #actions summary { font-size:12px; padding:6px; }
+    #help { display:none; }
+    #inv { max-height:100%; }
+  }
+  @media (max-height:500px) and (orientation:landscape) {
+    #wrap { grid-template-columns:minmax(0,1fr) 260px; grid-template-rows:auto minmax(0,1fr) 48px; }
+    #status { grid-column:1 / -1; }
+    #stage { grid-column:1; grid-row:2; }
+    #controls { grid-column:2; grid-row:2 / 4; max-height:100%; }
+    #log { grid-column:1; grid-row:3; height:48px; }
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="status"></div>
-  <div style="position:relative">
+  <div id="stage" style="position:relative">
     <canvas id="view" width="832" height="576"></canvas>
     <div id="inv" style="left:16px;top:16px"></div>
   </div>
@@ -79,9 +112,12 @@
     <div id="actions"></div>
   </div>
   <div id="help">
+    <div class="pointer-help">方向ボタンで移動。攻撃 / 決定で実行、戻るで閉じます。道具の行は直接タップできます。<br>特技・矢・移動モードは「その他」、地図・履歴・音・説明は「メニュー」。足元の道具に乗るには「その他」の移動モードを「拾わない」に切り替えます。</div>
+    <div class="keyboard-help">
     移動: 矢印 / テンキー（斜めは 7 9 1 3、Y U B N）　攻撃: Z / Space　道具: X / I（↑↓ 選択、Z 決定、X 戻る、Tab 整理）　足踏み: 5 / .　操作の一覧: H<br>
     向きだけ: C+方向　ダッシュ: Shift+方向　斜めだけ: D+矢印 2 つ　拾わずに乗る: V+方向　休む: Q　振り向く: S　矢を撃つ: F　特技: A　地図: M（押している間）　履歴: L　効果音: N<br>
     キーはタイトル画面の K で変えられる（ここに書いたのは初期値）
+    </div>
   </div>
 </div>
 <script>
@@ -2920,6 +2956,17 @@ function openNaming(o) {
 function askStairs() { ask("階段がある。降りますか？", descend, () => log("階段を降りるのをやめた。階段のキーでもう一度聞く。")); }
 /** 操作の一覧の窓を開く（H キー）。いまのキー割り当てで出す。 */
 function openHelp() {
+  if (pointerHelp()) {
+    openMenu({ title: () => "操作の一覧", rows: () => [
+      { label: "方向ボタン：移動。メニューでは上下で選択" },
+      { label: "攻撃 / 決定：攻撃、会話、選んだ操作の実行" },
+      { label: "道具：持ち物を開く。行をタップして操作を選択" },
+      { label: "足元：床の道具を拾う・使う・交換する" },
+      { label: "戻る：メニューや地図を閉じる" },
+      { label: "その他：特技・矢・階段・休む・振り向く・移動モード" },
+      { label: "メニュー：地図・履歴・音・操作説明" }
+    ], noCursor: true, wide: true, vis: 7, hint: "攻撃 / 決定 または 戻るで閉じる" }); return;
+  }
   const rows = [{ label: "移動　　矢印キー・テンキー（斜めは 7 9 1 3 か Y U B N）" },
     ...KEY_ACTIONS.map(([k, label]) => ({ label: `${label}　<b>${KEYS[k].map(keyName).join(" / ")}</b>` }))];
   openMenu({ title: () => "操作の一覧", rows: () => rows, noCursor: true, wide: true, vis: rows.length, cur: 0, hint: "Z か X で閉じる　キーはタイトル画面の K で変えられる" });
@@ -3728,6 +3775,14 @@ function recordResult(cleared) {
 </script>
 <script>
 const pad = document.getElementById("pad"), actions = document.getElementById("actions");
+const compactInput = matchMedia("(max-width:600px), (pointer:coarse)");
+function pointerHelp() {
+  return document.documentElement.dataset.input === "pointer" || (!document.documentElement.dataset.input && compactInput.matches);
+}
+document.addEventListener("pointerdown", () => { document.documentElement.dataset.input = "pointer"; }, { passive:true });
+document.addEventListener("keydown", event => {
+  if (event.isTrusted && !["Shift", "Control", "Alt", "Meta"].includes(event.key)) document.documentElement.dataset.input = "keyboard";
+}, { capture:true });
 let pointerMode = "move";
 function pressKey(key) {
   const target = state === "naming" ? document.getElementById("nickname") : document;
@@ -3745,17 +3800,50 @@ function pointerCommand(command) {
 function addControl(parent, label, handler) {
   const button = document.createElement("button");
   button.type = "button"; button.textContent = label;
-  button.addEventListener("click", () => { heardKey = true; handler(); });
+  button.addEventListener("click", event => { heardKey = true; handler(event); });
   parent.appendChild(button);
   return button;
 }
+let heldDirection = null, directionTimer = null;
+function stopDirection() {
+  clearTimeout(directionTimer); directionTimer = null;
+  if (heldDirection && heldDirection.dashing) dash = null;
+  heldDirection = null;
+}
+window.addEventListener("blur", stopDirection);
+document.addEventListener("visibilitychange", () => { if (document.hidden) stopDirection(); });
 [["↖",[-1,-1]], ["↑",[0,-1]], ["↗",[1,-1]], ["←",[-1,0]], ["足踏み",null], ["→",[1,0]], ["↙",[-1,1]], ["↓",[0,1]], ["↘",[1,1]]].forEach(([label, direction]) => {
-  const button = addControl(pad, label, () => {
+  const activate = () => {
     if (state === "menu" || state === "inv" || state === "keys") {
       pressKey(!direction ? "Enter" : direction[1] < 0 ? "ArrowUp" : direction[1] > 0 ? "ArrowDown" : direction[0] < 0 ? "ArrowLeft" : "ArrowRight"); return;
     }
     pointerCommand(direction ? { type:pointerMode === "nopick" ? "move" : pointerMode, d:direction, noPick:pointerMode === "nopick" } : { type:"wait" });
+  };
+  const button = addControl(pad, label, event => {
+    if (!direction || event.detail === 0) activate();
   });
+  if (direction) {
+    button.addEventListener("pointerdown", event => {
+      if (event.button !== 0) return;
+      event.preventDefault(); stopDirection();
+      button.setPointerCapture(event.pointerId);
+      if (state !== "play") { activate(); return; }
+      const hold = { pointerId:event.pointerId, dashing:pointerMode === "dash" };
+      heldDirection = hold;
+      if (!busy()) activate();
+      const repeat = () => {
+        if (heldDirection !== hold) return;
+        if (state !== "play") { stopDirection(); return; }
+        if (!busy()) activate();
+        directionTimer = setTimeout(repeat, 120);
+      };
+      directionTimer = setTimeout(repeat, 320);
+    });
+    for (const eventName of ["pointerup", "pointercancel", "lostpointercapture"]) button.addEventListener(eventName, event => {
+      if (heldDirection && heldDirection.pointerId === event.pointerId) stopDirection();
+    });
+    button.addEventListener("contextmenu", event => event.preventDefault());
+  }
   button.setAttribute("aria-label", direction ? `移動 ${label}` : label);
 });
 [["攻撃 / 決定", "attack"], ["道具", "inv"]].forEach(([label, type]) => addControl(actions, label, () => {
@@ -3829,7 +3917,6 @@ invEl.addEventListener("click", event => {
   else menu.cur = index;
   pressKey("Enter");
 });
-document.getElementById("help").insertAdjacentHTML("afterbegin", "クリック・タッチ: 方向ボタンで移動、攻撃 / 決定で実行。道具の行は直接タップできます。「その他」に特技・矢・移動モード、「メニュー」に地図・履歴・音・説明があります。移動モードを「拾わない」にすると床の道具に乗れます。足元から使う・交換ができます。店の商品を床から使うと泥棒になります。<br>");
 </script>
 </body>
 </html>
