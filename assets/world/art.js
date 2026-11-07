@@ -152,8 +152,14 @@ function drawSurface(kind,frame,x,y,size,context=ctx){
  context.imageSmoothingEnabled=false;context.drawImage(image,(frame%4)*width+1,row*height+1,width-2,height-2,x,y,size,size);return true;
 }
 function drawTitleLogo(context,x,y,width,height,variant=0){
- context.save();context.translate(x,y);context.scale(width/720,height/90);context.textAlign="center";context.font="bold 62px monospace";context.lineJoin="miter";
- context.strokeStyle="#080b12";context.lineWidth=12;context.strokeText("DUNGEON GAME",360,65);
- context.strokeStyle=["#765333","#267582","#6c7195"][variant];context.lineWidth=5;context.strokeText("DUNGEON GAME",360,62);
- const light=context.createLinearGradient(0,15,0,68);light.addColorStop(0,["#fff3c0","#d4fbf2","#eff4ff"][variant]);light.addColorStop(.5,["#d6aa55","#77bdab","#bdc9ed"][variant]);light.addColorStop(1,["#9e7336","#3c7e79","#687caa"][variant]);context.fillStyle=light;context.fillText("DUNGEON GAME",360,62);context.restore();
+ context.save();context.translate(x,y);context.scale(width/720,height/90);context.textAlign="center";context.lineJoin="round";
+ const accent=["#c8ae77","#8cb8ad","#aab9d4"][variant]||"#c8ae77";
+ context.font="16px Georgia, 'Times New Roman', serif";context.fillStyle=accent;
+ const label="THE ROAD",spacing=6,total=[...label].reduce((sum,letter)=>sum+context.measureText(letter).width,0)+spacing*(label.length-1);
+ let at=360-total/2;context.textAlign="left";for(const letter of label){context.fillText(letter,at,20);at+=context.measureText(letter).width+spacing;}
+ context.textAlign="center";context.font="600 60px Georgia, 'Times New Roman', serif";
+ context.strokeStyle="#111519";context.lineWidth=4;context.strokeText("REMEMBERS",360,71,680);
+ const light=context.createLinearGradient(0,28,0,73);light.addColorStop(0,"#fff7df");light.addColorStop(.55,"#e8dec4");light.addColorStop(1,accent);context.fillStyle=light;context.fillText("REMEMBERS",360,70,680);
+ context.strokeStyle=accent;context.lineWidth=1;context.beginPath();context.moveTo(208,83);context.lineTo(341,83);context.moveTo(379,83);context.lineTo(512,83);context.stroke();
+ context.beginPath();context.moveTo(360,78);context.lineTo(365,83);context.lineTo(360,88);context.lineTo(355,83);context.closePath();context.stroke();context.restore();
 }
