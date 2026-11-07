@@ -31,6 +31,7 @@
   .win.desc.peek h3 { white-space: nowrap; }
   .win h3 { white-space: normal; max-width: 520px; }
   .win .ic { width: 24px; height: 24px; image-rendering: pixelated; vertical-align: middle; margin-right: 6px; }
+  .world-icon { display:inline-block; background-image:url("./assets/world/items.png"); background-size:400% 300%; background-repeat:no-repeat; image-rendering:pixelated; }
   .win .hint { margin-top: 6px; font-size: 13px; line-height: 1.5; color: var(--dim); }
   .win.wide .row { white-space: normal; max-width: 760px; padding-left: 0; }
 </style>
@@ -100,6 +101,7 @@
   #log { height:124px; padding:12px 16px; background:#0a0e2af2; border:3px double #e8e0c8; border-radius:5px; font-size:16px; line-height:1.55; }
   #log div:not(:last-child) { color:#b9c1da; }
   #log div:last-child { color:#fff5df; }
+  #log:focus { overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y; outline:2px solid #9aaee6; outline-offset:2px; }
   #gameSurface { position:relative; width:100%; aspect-ratio:13 / 9; }
   #wrap { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   #wrap input, #wrap textarea { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
@@ -140,8 +142,10 @@
     #wrap { grid-template-rows:auto minmax(0,1fr) 84px; }
     #log { height:84px; font-size:12px; padding:4px 8px; }
     #controls { max-height:100%; }
-    #inv { width:calc(100% - 278px); }
+    #inv { width:calc(100% - 12px); }
     #inv .win .hint { display:none; }
+    #inv .menu-list .row { height:28px; min-height:28px; line-height:28px; font-size:12px; }
+    #inv .win.desc { max-height:46px; }
   }
 </style>
 </head>
@@ -154,7 +158,7 @@
     <div id="inv" style="left:16px;top:16px"></div>
     </div>
   </div>
-  <div id="log"></div>
+  <div id="log" tabindex="0" role="log" aria-live="polite" aria-label="メッセージ履歴。タップしてスクロール"></div>
   <div id="controls" aria-label="ゲーム操作">
     <p id="controlHint" aria-live="polite"></p>
     <div id="pad" aria-label="移動とメニュー選択"></div>
@@ -325,6 +329,112 @@ for (const [k, c] of Object.entries(IMG)) {
   g.drawImage(c, 0, 0); g.globalCompositeOperation = "source-atop"; g.fillStyle = "#fff"; g.fillRect(0, 0, T, T);
   IMGW[k] = w;
 }
+const worldArt = { monsters:new Map(), icons:new Map(), items:null, terrain:null };
+const WORLD_MOTION_META = {};
+const enemyMotionSources = new Map(), enemyMotionFrames = new Map();
+function ensureEnemyMotion(kind) {
+  if (!WORLD_MOTION_META[kind]) return null;
+  if (enemyMotionSources.has(kind)) {
+    const source = enemyMotionSources.get(kind); source.used = NOW(); return source;
+  }
+  if (enemyMotionSources.size >= 12) {
+    const oldest = [...enemyMotionSources].sort((first, second) => first[1].used - second[1].used)[0];
+    enemyMotionSources.delete(oldest[0]);
+  }
+  const image = new Image(), source = { image, ready:false, used:NOW() };
+  enemyMotionSources.set(kind, source); image.onload = () => { source.ready = true; };
+  image.src = "./assets/world/motions/" + kind + ".png";
+  return source;
+}
+function enemyMotionFrame(entity, kind, now) {
+  const source = ensureEnemyMotion(kind); if (!source || !source.ready) return null;
+  const direction = DungeonMotions.directionFromVector(...(entity.dir || [0, 1]));
+  const column = DUNGEON_MOTION_META.directions.indexOf(direction);
+  let row = 0;
+  if (entity.hp <= 0) row = 7;
+  else if (entity.hurt && now - entity.hurt < 240) row = 5;
+  else if (entity.strikeP != null) row = entity.strikeP < 0.35 ? 3 : entity.strikeP < 0.75 ? 4 : 0;
+  else if (entity.walkP != null) row = ((entity.steps || 0) % 2) ? 1 : 2;
+  else if (entity.specialT > now || entity.shellT > 0) row = 6;
+  const tier = entity.tier || 1, key = [kind, tier, row, column].join(":");
+  if (enemyMotionFrames.has(key)) {
+    const frame = enemyMotionFrames.get(key); enemyMotionFrames.delete(key); enemyMotionFrames.set(key, frame); return frame;
+  }
+  const rectangle = WORLD_MOTION_META[kind].frames[row * 8 + column], reference = WORLD_MOTION_META[kind].frames[column];
+  const [left, top, width, height, anchorX, anchorY] = rectangle, scale = 106 / Math.max(reference[2], reference[3]);
+  const canvas = document.createElement("canvas"); canvas.width = canvas.height = 160;
+  const context = canvas.getContext("2d"), horizontal = 80 + (left - anchorX) * scale, vertical = 140 + (top - anchorY) * scale;
+  context.imageSmoothingEnabled = false;
+  context.drawImage(source.image, left, top, width, height, horizontal, vertical, width * scale, height * scale);
+  const tint = monsterTint(kind, tier);
+  if (tint) {
+    context.globalCompositeOperation = "color"; context.globalAlpha = tier === 1 ? 0.6 : 0.82; context.fillStyle = tint; context.fillRect(0, 0, 160, 160); context.globalAlpha = 1;
+    context.globalCompositeOperation = "destination-in";
+    context.drawImage(source.image, left, top, width, height, horizontal, vertical, width * scale, height * scale);
+    context.globalCompositeOperation = "source-over";
+  }
+  enemyMotionFrames.set(key, canvas);
+  if (enemyMotionFrames.size > 192) enemyMotionFrames.delete(enemyMotionFrames.keys().next().value);
+  return canvas;
+}
+const WORLD_RECTS = {"monsters-1":[[78,48,191,148],[342,19,220,182],[638,31,231,169],[924,34,305,167],[1229,22,260,167],[42,226,227,178],[316,229,256,177],[615,241,246,164],[925,228,304,177],[1229,232,245,174],[51,423,216,180],[351,430,200,182],[626,434,296,180],[922,426,244,182],[1241,423,225,184],[25,617,271,190],[354,629,226,173],[639,614,212,193],[937,636,292,183],[1229,623,265,183],[34,825,236,182],[321,844,251,166],[626,821,239,191],[928,819,301,196],[1229,821,244,191]],"monsters-2":[[51,11,235,193],[330,10,246,190],[624,13,298,186],[922,19,307,185],[1229,9,272,184],[24,210,283,200],[307,212,307,192],[614,209,308,201],[922,218,307,187],[1229,214,273,196],[33,410,238,204],[331,417,283,192],[614,410,308,204],[922,414,307,195],[1229,410,275,204],[14,614,276,205],[321,615,267,204],[622,614,300,205],[922,617,307,202],[1229,614,290,205],[15,819,292,189],[307,819,279,194],[619,819,303,193],[922,819,307,192],[1229,819,281,193]],"monsters-3":[[41,9,256,196],[311,6,275,199],[623,8,299,197],[922,7,307,197],[1229,9,288,193],[22,205,268,196],[311,217,303,186],[614,205,308,197],[922,217,307,186],[1229,218,282,185],[34,413,241,201],[326,410,288,204],[614,410,308,204],[922,416,307,191],[1229,413,284,201],[17,614,281,205],[329,614,265,205],[615,614,307,205],[922,622,307,197],[1229,614,289,205],[5,819,296,191],[310,819,284,193],[625,819,240,195],[928,819,301,195],[1229,819,290,192]],"items":[[87,91,259,240],[439,91,276,238],[821,72,261,267],[1187,81,263,258],[101,414,228,220],[443,389,267,270],[808,386,274,273],[1193,377,273,282],[83,715,262,242],[462,726,250,224],[819,733,260,224],[1190,711,259,245]]};
+const WORLD_ICON_KEYS = ["herb", "rice", "club", "buckler", "ring", "arrow", "book", "staff", "pot", "coin", "heart", "star"].map(key => "item_" + key);
+const WORLD_THEMES = ["cave", "snow", "jungle", "ruins", "ice", "lake", "volcano", "altar"];
+const MONSTER_ACCENTS = {
+  muni:["#70d6bd", "#bb8dde", "#f4ca65"], mokko:[null, "#67b9b0", "#e7be58"], kusune:[null, "#6e85bf", "#9e71b9"],
+  berogaeru:[null, "#b4d451", "#bc7bd8"], hitotsume:[null, "#e27b81", "#7799af"], kinokoro:[null, "#b884de", "#80dce9"],
+  yumi:[null, "#dfaf59", "#dc7966"], sabi:[null, "#99b871", "#70c4b0"], hara:["#b69cdb", "#8dc8e8", "#e69aba"],
+  wana:["#a763a4", "#d8b76b", "#9b85cf"], tsubo:[null, "#98b9d9", "#d9b66c"], nise:[null, "#d48b7a", "#9e8dd0"],
+  pen:[null, "#91cce9", "#b7a0e3"], tsuta:[null, "#d6bd60", "#94d097"], kage:[null, "#8b9fe0", "#d58bc4"],
+  banjin:[null, "#8ca8df", "#e8c06b"], kiba:[null, "#ad8cdd", "#e28d94"], hibachi:[null, "#ce8be9", "#85d9ed"],
+  hoshi:[null, "#c6dce6", "#edc965"], iwagame:[null, "#bea76c", "#85bc93"], fuefuki:[null, "#80cdd6", "#ba9ae6"],
+  doromaru:["#7b739f", "#c38a68", "#b47bb7"], gaikotsu:[null, "#95b1d6", "#e1ba65"]
+};
+function monsterTint(kind, tier) {
+  if (MON[kind].npc) return null;
+  return MONSTER_ACCENTS[kind]?.[Math.min(3, Math.max(1, tier)) - 1] || null;
+}
+function artCell(image, rectangle, tint = null, tintStrength = 0.65) {
+  const [left, top, width, height] = rectangle;
+  const canvas = document.createElement("canvas"); canvas.width = canvas.height = 128;
+  const context = canvas.getContext("2d"), scale = 118 / Math.max(width, height);
+  context.imageSmoothingEnabled = false;
+  context.drawImage(image, left, top, width, height, (128 - width * scale) / 2, 124 - height * scale, width * scale, height * scale);
+  if (tint) {
+    context.globalCompositeOperation = "color"; context.globalAlpha = tintStrength; context.fillStyle = tint; context.fillRect(0, 0, 128, 128); context.globalAlpha = 1;
+    context.globalCompositeOperation = "destination-in";
+    context.drawImage(image, left, top, width, height, (128 - width * scale) / 2, 124 - height * scale, width * scale, height * scale);
+    context.globalCompositeOperation = "source-over";
+  }
+  return canvas;
+}
+function loadWorldArt() {
+  const monsterKeys = Object.keys(MON);
+  const monsters = new Image();
+  monsters.onload = () => monsterKeys.forEach((kind, index) => {
+    for (const tier of [1, 2, 3]) worldArt.monsters.set(kind + ":" + tier, artCell(monsters, WORLD_RECTS["monsters-1"][index], monsterTint(kind, tier), tier === 1 ? 0.6 : 0.82));
+  });
+  monsters.src = "./assets/world/monsters-1.png";
+  const icons = new Image();
+  icons.onload = () => {
+    worldArt.items = icons;
+    WORLD_ICON_KEYS.forEach((key, index) => worldArt.icons.set(key, artCell(icons, WORLD_RECTS.items[index])));
+    draw.st = null;
+    if (state === "inv") renderInv(); else if (state === "menu") renderMenu();
+  };
+  icons.src = "./assets/world/items.png";
+  const terrain = new Image(); terrain.onload = () => { worldArt.terrain = terrain; }; terrain.src = "./assets/world/terrain.png";
+}
+function drawWorldTile(type, horizontal, vertical, width, height) {
+  if (!worldArt.terrain) return false;
+  const theme = Object.keys(THEMES).find(key => THEMES[key] === THEME), themeIndex = WORLD_THEMES.indexOf(theme);
+  if (themeIndex < 0) return false;
+  const index = Math.floor(themeIndex / 4) * 12 + type * 4 + themeIndex % 4;
+  const tileWidth = worldArt.terrain.width / 4, tileHeight = worldArt.terrain.height / 6;
+  ctx.drawImage(worldArt.terrain, index % 4 * tileWidth + 2, Math.floor(index / 4) * tileHeight + 2, tileWidth - 4, tileHeight - 4, horizontal, vertical, width, height);
+  return true;
+}
+function itemArt(kind) { const key = "item_" + iconOf(kind); return worldArt.icons.get(key) || IMG[key]; }
 
 // 道具（16×16）
 const ITEM_ART = {
@@ -648,13 +758,13 @@ function occupied(x, y) { return (player && player.x === x && player.y === y) ||
 // ---- 敵の種類（数値は仮。調整は後で） ----
 const MON = {
   // stats: レベル 2・3 の値（種族の役割に合わせて個別に決める）
-  //   モッコ=基準の殴り役 / クスネ=打たれ弱い泥棒 / ベロガエル=硬めで遅い / ヒトツメ=もろいが速い
+  //   モッコ=基準の殴り役 / フクロイタチ=打たれ弱い泥棒 / ベロガエル=硬めで遅い / ヒトツメ=もろいが速い
   //   キノコロ=HP が多く攻撃は弱い / ガイコツ=守りと一撃が重い / ムニ=Lv2 まで最弱、Lv3 だけ別格
   muni:      { name: "ムニ", desc: "まんまるのネズミ。いちばん弱くておとなしい。ただし Lv3 のムニダイオウだけは桁違いに強く、経験値も多い（自然には出ず、レベルアップでだけ現れる）。",       hp: 6,  atk: 2, def: 0, exp: 2, ai: "melee",
                stats: [null, { hp: 9, atk: 3, def: 0, exp: 5 }, { hp: 90, atk: 24, def: 12, exp: 200 }] },
   mokko:     { name: "モッコ", desc: "割れた鍋をかぶり、小枝の槍を持った毛玉。まっすぐ寄ってきて殴る。",     hp: 8,  atk: 3, def: 0, exp: 3, ai: "melee",
                stats: [null, { hp: 15, atk: 5, def: 1, exp: 9 },  { hp: 30, atk: 8,  def: 2, exp: 25 }] },
-  kusune:    { name: "クスネ", desc: "唐草の頬かむりをしたイタチ。同じ部屋の床の道具を包んで逃げる。倒すと包んだ道具を落とす。",     hp: 10, atk: 2, def: 0, exp: 5, ai: "thief",
+  kusune:    { name: "フクロイタチ", desc: "唐草の頬かむりをしたイタチ。同じ部屋の床の道具を包んで逃げる。倒すと包んだ道具を落とす。",     hp: 10, atk: 2, def: 0, exp: 5, ai: "thief",
                stats: [null, { hp: 14, atk: 4, def: 0, exp: 12 }, { hp: 20, atk: 6,  def: 1, exp: 30 }] },
   berogaeru: { name: "ベロガエル", desc: "半目のカエル。動きは 2 ターンに 1 回と遅いが、まっすぐ・斜めの 2 マス先まで舌がのびてくる。", hp: 12, atk: 4, def: 1, exp: 6, ai: "tongue", slow: true,
                stats: [null, { hp: 22, atk: 6, def: 2, exp: 16 }, { hp: 40, atk: 10, def: 3, exp: 40 }] },
@@ -1132,7 +1242,7 @@ function triggerTrap(t) {
 const ENEMIES = {
   1:  { kind: "muni", tier: 1 },      2:  { kind: "muni", tier: 2 },      3:  { kind: "muni", tier: 3 },        // ムニ / ハネムニ / ムニダイオウ
   4:  { kind: "mokko", tier: 1 },     5:  { kind: "mokko", tier: 2 },     6:  { kind: "mokko", tier: 3 },       // モッコ / ナベモッコ / オヤブンモッコ
-  7:  { kind: "kusune", tier: 1 },    8:  { kind: "kusune", tier: 2 },    9:  { kind: "kusune", tier: 3 },      // クスネ / ヌスット / オオドロボウ
+  7:  { kind: "kusune", tier: 1 },    8:  { kind: "kusune", tier: 2 },    9:  { kind: "kusune", tier: 3 },      // フクロイタチ / ヌスット / オオドロボウ
   10: { kind: "berogaeru", tier: 1 }, 11: { kind: "berogaeru", tier: 2 }, 12: { kind: "berogaeru", tier: 3 },   // ベロガエル / ドクベロ / ベロキング
   13: { kind: "hitotsume", tier: 1 }, 14: { kind: "hitotsume", tier: 2 }, 15: { kind: "hitotsume", tier: 3 },   // ヒトツメ / アカメ / ヤミメ
   16: { kind: "kinokoro", tier: 1 },  17: { kind: "kinokoro", tier: 2 },  18: { kind: "kinokoro", tier: 3 },    // キノコロ / ドクキノコロ / オオキノコロ
@@ -1306,11 +1416,8 @@ function flushEvents(playerFirst) {
       }
       const dx = Math.sign(h.t.x - h.a.x), dy = Math.sign(h.t.y - h.a.y), k = h.still ? 0 : Math.sin(p * Math.PI) * (h.far ? 0.6 : 0.35);
       h.a.lx = dx * k; h.a.ly = dy * k;
+      if (!h.still) h.a.strikeP = p;
       if ((h.a === player || h.a === ally) && !h.still) h.a.atkP = p;
-      if (!this.slashed && p >= 0.3 && !h.still) {
-        this.slashed = true;
-        slashes.push({ x: h.t.x, y: h.t.y, ang: Math.atan2(h.t.y - h.a.y, h.t.x - h.a.x), t0: performance.now() });
-      }
       if (!this.fired && p >= 0.5) {
         this.fired = true;
         if (h.air) {}
@@ -1327,7 +1434,7 @@ function flushEvents(playerFirst) {
           for (let i = 0; i < 6; i++) puffs.push({ x0: h.t.x + 0.5, y0: h.t.y + 0.5, x1: h.t.x + 0.5 + (R() - 0.5) * 1.2, y1: h.t.y + 0.1 - R() * 0.6, r: 6 + R() * 5,
             color: "#d8d0c8", t0: NOW() + 120 + i * 30, life: 500 }); }
       }
-    }, end() { h.a.lx = h.a.ly = 0; if (h.a === player || h.a === ally) h.a.atkP = null; } });
+    }, end() { h.a.lx = h.a.ly = 0; h.a.strikeP = null; if (h.a === player || h.a === ally) h.a.atkP = null; } });
   if (playerFirst) hs.filter(h => h.a === player).forEach(h => steps.push(hitStep(h)));
   if (mv.length) steps.push({ dur: dash ? 45 : MOVE_MS, update(p) {
       for (const m of mv) { m.e.walkP = p; m.e.rx = m.fx + (m.e.x - m.fx) * p; m.e.ry = m.fy + (m.e.y - m.fy) * p; m.e.hop = Math.sin(p * Math.PI) * 0.09;
@@ -1346,6 +1453,12 @@ function pillar(e, color) { pillars.push({ e, color, t0: NOW() }); sfx("levelup"
 let audioCtx = null, soundOn = true;
 try { soundOn = localStorage.getItem("dungeon-sound") !== "off"; } catch (e) {}
 const SFX = {
+  eat:      { type:"triangle", f0:420, f1:160, dur:0.08, vol:0.035 },
+  heal:     { type:"sine", f0:520, f1:1100, dur:0.18, vol:0.04 },
+  paper:    { type:"sawtooth", f0:900, f1:260, dur:0.07, vol:0.018 },
+  staff:    { type:"triangle", f0:340, f1:1400, dur:0.13, vol:0.035 },
+  frost:    { type:"sine", f0:1500, f1:650, dur:0.16, vol:0.03 },
+  potbreak: { type:"square", f0:640, f1:80, dur:0.11, vol:0.045 },
   hit:      { type: "square",   f0: 240, f1: 70,   dur: 0.08, vol: 0.05 },
   hurt:     { type: "sawtooth", f0: 170, f1: 55,   dur: 0.16, vol: 0.06 },
   miss:     { type: "sine",     f0: 620, f1: 300,  dur: 0.07, vol: 0.03 },
@@ -1370,6 +1483,20 @@ function sfx(kind) {
   g.gain.setValueAtTime(P.vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + P.dur);
   o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t + P.dur + 0.02);
   if (P.then) setTimeout(() => sfx(P.then), P.dur * 600);
+}
+function itemFeedback(kind) {
+  const category = ITEMS[kind].cat;
+  const healing = ["herb", "bigherb", "sc_heal", "curegrass", "genki"].includes(kind);
+  const fiery = /fire|flame|bomb/.test(kind), frosty = /freeze|ice/.test(kind);
+  const sound = healing ? "heal" : fiery ? "fire" : frosty ? "frost" : category === "食料" ? "eat" : category === "魔導書" ? "paper" : category === "杖" ? "staff" : "special";
+  fxStep(() => {
+    sfx(sound);
+    if (healing) rise(player, "#91e5ae", 6);
+    else if (fiery) sparks(player, "#ffad65", 6, 0.025, 0.015);
+    else if (frosty) ring(player, "#a9e2ff", 0.65, 220);
+    else if (category === "魔導書") rise(player, "#d5baff", 5);
+    else if (category === "杖") sparks(player, "#9fd6ff", 5, 0.02, 0.01);
+  }, 100);
 }
 // 特技・特殊行動の名前を画面上部に帯で出す
 function banner(text, color = "#ffe060") { banners.push({ text, color, t0: NOW() }); sfx("special"); }
@@ -1410,7 +1537,7 @@ function puffCloud(from, to, color, n = 14) {
   for (let i = 0; i < n; i++) puffs.push({ x0: from.x + 0.5 + (R() - 0.5) * 0.5, y0: from.y + 0.3 + (R() - 0.5) * 0.4,
     x1: to.x + 0.5 + (R() - 0.5) * 0.9, y1: to.y + 0.4 + (R() - 0.5) * 0.7, r: 5 + R() * 6, color, t0: now + i * 18, life: 520 + R() * 260 });
 }
-function squash(e, ms = 260) { e.squash = { t0: NOW(), ms }; }      // ぐっと縮んで伸びる
+function squash(e, ms = 260) { e.squash = { t0: NOW(), ms }; if (e.kind && MON[e.kind]) e.specialT = NOW() + ms; }      // ぐっと縮んで伸びる
 function popup(e, text, color) { popups.push({ x: e.x, y: e.y, text, color, t0: performance.now() }); }
 function runQueue(now) {
   while (true) {
@@ -1721,7 +1848,7 @@ function playerMove(dx, dy, noPick) {
   }
   const it = items.find(i => i.x === ex && i.y === ey);
   if (it) {
-    if (noPick || it.shop) log(`${itemName(it)}の上に乗った。${it.shop ? "足元メニューから拾える。" : ""}`);
+    if (noPick || it.shop) log(`${itemName(it)}の上に乗った。${it.shop ? "「商品を見る」から持ち出せます。支払いは店主へ。" : ""}`);
     else pickUp(it);
   }
   const t = traps.find(t => t.x === ex && t.y === ey);
@@ -1968,7 +2095,7 @@ function steal(m) {
   const o = cand[ri(0, cand.length - 1)];
   player.inv = player.inv.filter(x => x !== o); m.carry = o;
   log(`${m.name}は${itemName(o)}を盗んだ！`);
-  flushEvents(false); flyAnim(o.kind, m.x, m.y);              // 持ち物がクスネの方へ飛んでいく
+  flushEvents(false); flyAnim(o.kind, m.x, m.y);              // 持ち物がフクロイタチの方へ飛んでいく
   const at = { x: m.x, y: m.y }, mm = m;
   fxStep(() => { sparks(at, "#ffe080", 12, 0.05, 0.01); popup(at, "盗", "#ffe080"); squash(mm, 220); }, 200);
   if (abil(m, "warpaway")) {
@@ -2483,6 +2610,8 @@ function drawTrap(t, x, y, g = ctx) {          // g: 説明書の絵を書き出
   for (const [u, v] of [[2, 2], [15, 2], [2, 15], [15, 15]]) px(u, v, "#2e2620");                                   // 四すみの鋲
   const icon = TRAP_ICON[t.kind];
   if (icon) icon((u, v, c, w, h) => px(1 + u, 1 + v, c, w, h));
+  g.save(); g.strokeStyle = TRAPS[t.kind].color; g.lineWidth = 2; g.strokeRect(X0 - 2, Y0 - 2, 40, 40);
+  g.fillStyle = "#151221"; g.fillRect(X0 + 22, Y0 - 7, 16, 14); g.fillStyle = "#fff4c6"; g.font = "11px monospace"; g.fillText("罠", X0 + 24, Y0 + 4); g.restore();
 }
 // 場所ごとの空気: 雪が舞う・火の粉が昇る・ホタルが光る など。粒は持たず、番号と時刻から位置を決める（カメラが動くと一緒に流れる）
 const AMBIENT = {
@@ -2542,7 +2671,7 @@ function draw(now = performance.now()) {
     const isWall = isWallTile(map[y][x]), W_ = (xx, yy) => isWallTile(tileAt(xx, yy));
     const X = sx(x), Y = sy(y);
     if (!isWall) {
-      ctx.drawImage(FLOOR_TEX, x * T, y * T, T, T, X, Y, TS, TS);
+      if (!drawWorldTile(0, X, Y, TS, TS)) ctx.drawImage(FLOOR_TEX, x * T, y * T, T, T, X, Y, TS, TS);
       // 壁ぎわの床は暗く（壁の高さで光がさえぎられる）
       const shade = (x0, y0, w, h, gx0, gy0, gx1, gy1, a) => {
         const g = ctx.createLinearGradient(gx0, gy0, gx1, gy1); g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(1, "rgba(0,0,0,0)");
@@ -2551,18 +2680,22 @@ function draw(now = performance.now()) {
       if (W_(x - 1, y)) shade(X, Y, 18, TS, X, 0, X + 18, 0, 0.45);
       if (W_(x + 1, y)) shade(X + TS - 12, Y, 12, TS, X + TS, 0, X + TS - 12, 0, 0.3);
       drawTerrain(map[y][x], x, y, X, Y, now);
+      const terrainMark = { [TILE.WATER]:["水", "#a5dfff"], [TILE.ICE]:["滑", "#bdefff"], [TILE.LAVA]:["熱", "#ffb27b"], [TILE.BRUSH]:["草", "#b9dc8c"], [TILE.CRUMBLE]:["崩", "#edc693"], [TILE.HOLE]:["穴", "#e1bddb"] }[map[y][x]];
+      if (terrainMark && visible(x, y) && Math.abs(x - player.x) <= 2 && Math.abs(y - player.y) <= 2) {
+        ctx.fillStyle = "#10131ddd"; ctx.fillRect(X + 4, Y + 4, 18, 17); ctx.fillStyle = terrainMark[1]; ctx.font = "12px monospace"; ctx.fillText(terrainMark[0], X + 7, Y + 17);
+      }
       const dec = map[y][x] === TILE.FLOOR ? floorDecor(x, y) : null;
       if (dec && !(stairs.x === x && stairs.y === y)) drawDecor(dec, X, Y);
     } else {
       const faceUp = !W_(x, y + 1);
-      ctx.drawImage(WALL_TEX, x * T, y * T, T, T, X, Y, TS, TS);
+      if (!drawWorldTile(1, X, Y, TS, TS)) ctx.drawImage(WALL_TEX, x * T, y * T, T, T, X, Y, TS, TS);
       if (faceUp) {
         // 手前に床がある壁は、正面の岩肌を下 2/3 に描き、上の縁に光を入れる（高さが出る）
         const fy = Y + Math.round(TS * 0.3), fh = TS - Math.round(TS * 0.3);
         const g = ctx.createLinearGradient(0, fy, 0, fy + fh);
         g.addColorStop(0, THEME.face[0]); g.addColorStop(0.5, THEME.face[1]); g.addColorStop(1, THEME.face[2]);
         ctx.fillStyle = g; ctx.fillRect(X, fy, TS, fh);
-        ctx.drawImage(WALL_TEX, x * T, y * T + 8, T, T - 8, X, fy, TS, fh);   // 岩の模様を正面にも
+        if (!drawWorldTile(2, X, fy, TS, fh)) ctx.drawImage(WALL_TEX, x * T, y * T + 8, T, T - 8, X, fy, TS, fh);   // 岩の模様を正面にも
         ctx.fillStyle = THEME.faceTint; ctx.fillRect(X, fy, TS, fh);
         ctx.fillStyle = THEME.rim; ctx.fillRect(X, fy - 2, TS, 3);              // 縁の光
         ctx.fillStyle = "#1a1410"; ctx.fillRect(X, Y + TS - 3, TS, 3);          // 足もとの線
@@ -2591,7 +2724,7 @@ function draw(now = performance.now()) {
   for (const t of traps) if (t.seen && seen[t.y][t.x]) drawTrap(t, sx(t.x), sy(t.y));
   for (const m of monsters) if (m.disguise && seen[m.y][m.x]) {
     ctx.fillStyle = "rgba(0,0,0,0.35)"; ctx.beginPath(); ctx.ellipse(sx(m.x) + 32, sy(m.y) + 50, 16, 5, 0, 0, 7); ctx.fill();
-    ctx.drawImage(IMG["item_" + iconOf(m.disguise)], sx(m.x) + 12, sy(m.y) + 10, 40, 40);
+    ctx.drawImage(itemArt(m.disguise), sx(m.x) + 12, sy(m.y) + 10, 40, 40);
   }
   if (goal && seen[goal.y][goal.x]) {                      // はじまりの宝玉: 台座の上で光る玉
     const X = sx(goal.x), Y = sy(goal.y), b = Math.sin(now / 250) * 3;
@@ -2604,7 +2737,7 @@ function draw(now = performance.now()) {
   }
   for (const it of items) if (visible(it.x, it.y)) {
     ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.beginPath(); ctx.ellipse(sx(it.x) + 32, sy(it.y) + 50, 15, 5, 0, 0, 7); ctx.fill();
-    ctx.drawImage(IMG["item_" + iconOf(it.kind)], sx(it.x) + 12, sy(it.y) + 10, 40, 40);
+    ctx.drawImage(itemArt(it.kind), sx(it.x) + 12, sy(it.y) + 10, 40, 40);
     { const k = ((now + (it.x * 37 + it.y * 91) * 53) % 2600) / 260;   // ときどききらりと光る（道具ごとに時間をずらす）
       if (k < 1) { const a = Math.sin(k * Math.PI), cx = sx(it.x) + 40, cy = sy(it.y) + 18, r = 2 + a * 5;
         ctx.globalAlpha = a; ctx.fillStyle = "#ffffff"; ctx.fillRect(cx - r, cy - 1, r * 2, 2); ctx.fillRect(cx - 1, cy - r, 2, r * 2); ctx.globalAlpha = 1; } }
@@ -2645,6 +2778,8 @@ function draw(now = performance.now()) {
     const moving = (e.hop || 0) > 0.001, attacking = Math.abs(e.lx) + Math.abs(e.ly) > 0.02;
     const frame = frameOf(e, now, moving, attacking);
     const nativeHero = base === "viking" || base === "ranger";
+    const motionImage = nativeHero ? null : enemyMotionFrame(e, base, now);
+    const monsterImage = worldArt.monsters.get(base + ":" + (e.tier || 1)) || worldArt.monsters.get(base + ":1");
     const tb = e.tier > 1 ? `${base}${e.tier}` : base;
     let key = `${tb}_${facing}_${frame}`; if (!IMG[key]) key = `${base}_${facing}_${frame}`; if (!IMG[key]) key = base;
     const phase = now / 520 + (e.x * 97 + e.y * 31) * 0.37, floater = FLOATERS.has(base);
@@ -2657,7 +2792,7 @@ function draw(now = performance.now()) {
     const sh = 1 - (e.hop || 0) * 3;
     ctx.beginPath(); ctx.ellipse(sx(e.rx + e.lx) + TS / 2, sy(e.ry + e.ly) + TS - 9, 19 * sh, 7 * sh, 0, 0, 7); ctx.fill(); ctx.restore();
     ctx.save(); ctx.globalAlpha = alpha;
-    if (dx < 0 && !nativeHero) { ctx.translate(px + TS, py); ctx.scale(-1, 1); } else ctx.translate(px, py);
+    if (dx < 0 && !nativeHero && !monsterImage && !motionImage) { ctx.translate(px + TS, py); ctx.scale(-1, 1); } else ctx.translate(px, py);
     { // 呼吸（ゆっくりふくらむ）・攻撃の伸び縮みと前のめり・攻撃を受けたのけぞり
       let sxk = 1, syk = 1, rot = 0;
       if (!nativeHero && !moving && !attacking && !e.sleep && !e.stun) { const b = Math.sin(phase * 2) * 0.025; sxk -= b * 0.6; syk += b; }
@@ -2696,6 +2831,12 @@ function draw(now = performance.now()) {
       const previousFilter = ctx.filter;
       if (e.flash > now) ctx.filter = "brightness(2)";
       drawHero(ctx, e, now, TS / 2, TS - 2, TS * 1.2);
+      ctx.filter = previousFilter;
+    } else if (motionImage || monsterImage) {
+      const previousFilter = ctx.filter;
+      if (e.flash > now) ctx.filter = "brightness(2)";
+      if (motionImage) ctx.drawImage(motionImage, TS / 2 - TS * 0.8, TS - 2 - TS * 1.4, TS * 1.6, TS * 1.6);
+      else ctx.drawImage(monsterImage, 0, 0, TS, TS);
       ctx.filter = previousFilter;
     } else ctx.drawImage(e.flash > now ? IMGW[key] : IMG[key], 0, 0, TS, TS);
     if (!nativeHero && e === player && e.shield && facing !== "side") equipment(() => drawShield(facing));
@@ -2932,15 +3073,21 @@ function draw(now = performance.now()) {
   const need = LV_NEED[player.lv] ?? player.exp, prev = LV_NEED[player.lv - 1] ?? 0;
   const bar = (v, max, col) => `<span class="bar"><i style="width:${Math.max(0, Math.min(100, v / max * 100))}%;background:${col}"></i></span>`;
   const hpCol = player.hp / player.maxhp > 0.5 ? "#58c858" : player.hp / player.maxhp > 0.25 ? "#e8c040" : "#e05040";
-  const ic = k => `<img class="sic" src="${iconURL("item_" + k)}">`;          // 帯の小さな絵
+  const ic = k => iconMarkup("item_" + k, "sic");          // 帯の小さな絵
   const st = `<span><b>地下 ${floor}F</b></span>` +
     `<span class="gauge">${ic("star")}<b>${player.lv}</b>${bar(player.exp - prev, Math.max(1, need - prev), "#80a8f0")}</span>` +
     `<span class="gauge">${ic("heart")}<b>${player.hp}</b>/${player.maxhp}${bar(player.hp, player.maxhp, hpCol)}</span>` +
     `<span class="gauge">${ic("rice")}<b>${player.food}</b>/${player.foodMax}${bar(player.food, player.foodMax, player.food > 20 ? "#e8a050" : "#e05040")}</span>` +
     `<span>力 <b>${player.str}</b>/${player.strMax}</span><span>${ic("club")}<b>${atkTotal()}</b> ${ic("buckler")}<b>${defTotal()}</b></span><span>${turn}T</span>${ally && ally.joined ? `<span style="color:#a0f0a0">${ally.name} <b>${ally.hp}</b>/${ally.maxhp}</span>` : ""}<span>${ic("coin")}<b>${player.gold}</b></span>`;
-  const lg = logLines.map(s => `<div>${s}</div>`).join("");
+  const lg = fullLog.map(s => `<div>${String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`).join("");
   if (st !== draw.st) { document.getElementById("status").innerHTML = draw.st = st; }
-  if (lg !== draw.lg) { document.getElementById("log").innerHTML = draw.lg = lg; }
+  if (lg !== draw.lg) {
+    const logWindow = document.getElementById("log");
+    const reading = document.activeElement === logWindow && logWindow.scrollTop + logWindow.clientHeight < logWindow.scrollHeight - 8;
+    const position = logWindow.scrollTop;
+    logWindow.innerHTML = draw.lg = lg;
+    logWindow.scrollTop = reading ? position : logWindow.scrollHeight;
+  }
 }
 /**
  * 主人公にかかっている状態と残りターンを、画面の左上に小さな札で出す（帯の長さが変わらないように、絵の上に重ねる）。
@@ -3059,25 +3206,32 @@ function openMenu(o) { pm = { cur: 0, vis: 14, ...o }; state = "menu"; invEl.sty
 function closeMenu() { pm = null; invEl.style.display = "none"; if (state === "menu") state = "play"; }
 const ICON_URL = {};
 const iconURL = k => ICON_URL[k] || (ICON_URL[k] = IMG[k] ? IMG[k].toDataURL() : "");
+function iconMarkup(key, className) {
+  const index = WORLD_ICON_KEYS.indexOf(key);
+  if (worldArt.items && index >= 0) {
+    const column = index % 4, row = Math.floor(index / 4);
+    return `<span class="${className} world-icon" role="img" aria-label="道具" style="background-position:${column / 3 * 100}% ${row / 2 * 100}%"></span>`;
+  }
+  return `<img class="${className}" src="${iconURL(key)}">`;
+}
 function menuRowLimit() {
   const compact = matchMedia("(max-width:600px), (max-height:500px) and (orientation:landscape)").matches;
   if (!compact) return 10;
   const top = Math.max(6, document.getElementById("status").getBoundingClientRect().bottom + 4);
-  const controlsTop = document.getElementById("controls").getBoundingClientRect().top;
-  const bottom = controlsTop > top + 80 ? Math.min(innerHeight - 6, controlsTop - 6) : innerHeight - 6;
+  const bottom = innerHeight - 6;
   const height = Math.max(100, bottom - top);
   invEl.style.setProperty("--menu-top", top + "px");
   invEl.style.setProperty("--menu-height", height + "px");
-  return Math.max(1, Math.min(6, Math.floor((height - 260) / 40)));
+  return 6;
 }
 function pageWindow(current, total, limit) {
   const index = Math.max(0, Math.min(current, Math.max(0, total - 1)));
   const pages = Math.max(1, Math.ceil(total / limit)), page = Math.floor(index / limit);
-  return { start:page * limit, end:Math.min(total, (page + 1) * limit), page, pages };
+  return { start:page * limit, end:Math.min(total, (page + 1) * limit), page, pages, total };
 }
 function pageArrows(key, page) {
-  if (page.pages <= 1) return "";
-  return `<div class="menu-pager"><button type="button" data-page="${key}" data-step="-1" aria-label="前のページ"${page.page === 0 ? " disabled" : ""}>◀</button><span>${page.page + 1} / ${page.pages}</span><button type="button" data-page="${key}" data-step="1" aria-label="次のページ"${page.page + 1 === page.pages ? " disabled" : ""}>▶</button></div>`;
+  const count = page.total ? `${page.start + 1}〜${page.end}件 / 全${page.total}件` : "0件";
+  return `<div class="menu-pager"><button type="button" data-page="${key}" data-step="-1" aria-label="前のページ"${page.page === 0 ? " disabled" : ""}>◀</button><span>${count}<br>${page.page + 1} / ${page.pages}ページ</span><button type="button" data-menu-back>戻る</button><button type="button" data-page="${key}" data-step="1" aria-label="次のページ"${page.page + 1 === page.pages ? " disabled" : ""}>▶</button></div>`;
 }
 function changeMenuPage(key, step) {
   let cursor, count;
@@ -3129,7 +3283,7 @@ function openNaming(o) {
   state = "naming";
   invEl.innerHTML = `<div class="win"><h3>${fakeName[o.kind]}に名前をつける</h3>`
     + `<input id="nickname" type="text" inputmode="text" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="12" value="${(nick[o.kind] || "").replace(/"/g, "&quot;")}" style="font:inherit;font-size:17px;width:240px;background:#141a3a;color:#fff;border:1px solid #e8e0c8;padding:2px 6px">`
-    + `<div class="hint">${inputHint("Enter 決める　Esc やめる", "保存で決める ／ 戻るでやめる")}（空にすると名前を消す）</div></div>`;
+    + `<div class="hint">${inputHint("Enter 決める　Esc やめる", "保存で決める ／ 戻るでやめる")}（空にすると名前を消す）</div><div class="menu-pager"><button type="button" data-name-save>保存</button><button type="button" data-menu-back>戻る</button></div></div>`;
   const inp = document.getElementById("nickname");
   inp.focus(); inp.select();
   inp.addEventListener("keydown", e => {
@@ -3189,7 +3343,7 @@ const rows = () => (feetLabel() ? [{ feet: true }] : []).concat(player.inv.map((
 function feetOptions() {
   const it = feetItem(), opts = [];
   if (it) {
-    opts.push({ label: "拾う", run: () => pickUp(it) });
+    opts.push({ label: it.shop ? "商品を持つ（未払い）" : "拾う", run: () => pickUp(it) });
     for (const option of itemOptions(it, -1, true).filter(option => ["食べる", "読む", "振る", "撃つ", "投げる"].includes(option.label))) opts.push(option);
     opts.push({ label: "交換", off: !player.inv.length, run: () => {
       if (!player.inv.length) return false;
@@ -3247,7 +3401,11 @@ function itemOptions(o, idx, ground = false) {
     if (pot.kind === "pot_ident" && !known.has(o.kind)) { known.add(o.kind); log(`それは${ITEMS[o.kind].name}だった。`); }
     return true; } });
   if (!known.has(o.kind)) opts.push({ label: "名前をつける", run: () => { openNaming(o); return "noturn"; } });
-  return opts;
+  return opts.map(option => {
+    if (!["食べる", "読む", "振る"].includes(option.label)) return option;
+    const use = option.run;
+    return { ...option, run:() => { const result = use(); if (result === true) itemFeedback(o.kind); return result; } };
+  });
 }
 function showInv() { state = "inv"; menu = { cur: 0, sub: null, desc: null, pot: null, swap: null }; invEl.style.display = "flex"; renderInv(); }
 function hideInv() { invEl.style.display = "none"; state = "play"; menu = null; }
@@ -3255,15 +3413,16 @@ function renderInv() {
   const rs = rows();
   const limit = menuRowLimit();
   menu.cur = Math.min(menu.cur, Math.max(0, rs.length - 1));
-  const ic = o => `<img class="ic" src="${iconURL("item_" + iconOf(o.kind))}">`;   // 道具の種類の絵
+  const ic = o => iconMarkup("item_" + iconOf(o.kind), "ic");   // 道具の種類の絵
   const inventoryPage = pageWindow(menu.cur, rs.length, limit);
-  const list = rs.length ? rs.slice(inventoryPage.start, inventoryPage.end).map((r, index) => { const i = inventoryPage.start + index; return `<div data-index="${i}" class="row${i === menu.cur ? " sel" : ""}">${r.feet ? `【足元】${feetLabel()}` : ic(r.o) + itemName(r.o)}</div>`; }).join("")
+  const list = rs.length ? rs.slice(inventoryPage.start, inventoryPage.end).map((r, index) => { const i = inventoryPage.start + index; return `<div data-index="${i}" class="row${i === menu.cur ? " sel" : ""}">${r.feet ? `【${feetItem() && feetItem().shop ? "商品" : "足元"}】${feetLabel()}` : ic(r.o) + itemName(r.o)}</div>`; }).join("")
                          : `<div class="row dim">なにも持っていない</div>`;
   const title = menu.swap ? `交換する道具を選ぶ` : `持ち物 ${player.inv.length}/10　<span class="dim">${inputHint("Tab: 整理", "整理ボタンで並べ替え")}</span>`;
   let html = `<div class="win" data-pane="inventory" data-inactive="${!!(menu.sub || menu.pot)}"><h3>${title}</h3><div class="menu-list">${list}</div>${pageArrows("inventory", inventoryPage)}</div>`;
   if (menu.sub) {
     const optionsPage = pageWindow(menu.sub.cur, menu.sub.opts.length, limit);
-    html += `<div class="win" data-pane="options" data-inactive="${!!menu.pot}"><h3>どうする？</h3><div class="menu-list">${menu.sub.opts.slice(optionsPage.start, optionsPage.end).map((o, index) => {
+    const selected = rs[menu.cur], selectedName = selected ? selected.feet ? feetLabel() : itemName(selected.o) : "道具";
+    html += `<div class="win" data-pane="options" data-inactive="${!!menu.pot}"><h3>${selectedName}：どうする？</h3><div class="menu-list">${menu.sub.opts.slice(optionsPage.start, optionsPage.end).map((o, index) => {
       const i = optionsPage.start + index;
       return `<div data-index="${i}" class="row${i === menu.sub.cur ? " sel" : ""}${o.off ? " dim" : ""}">${o.label}</div>`;
     }).join("")}</div>${pageArrows("options", optionsPage)}</div>`;
@@ -3395,7 +3554,7 @@ function throwItem(o) {
       hits.push({ a:hit, t:hit, d:damage, killed:hit.hp <= 0, still:true });
       if (hit.hp <= 0) kill(hit);
     } else log(`${itemName(o)}は落ちた場所で割れた。`);
-    fxStep(() => sparks({ x, y }, "#c09060", 14, 0.06, 0.01), 120);
+    fxStep(() => { sfx("potbreak"); sparks({ x, y }, "#c09060", 14, 0.06, 0.01); }, 120);
     for (const content of o.contents) {
       const position = nearFree(x, y);
       if (position) items.push({ ...content, ...position });
@@ -3938,7 +4097,7 @@ function saveGame() {
 function settle(e) {
   if (!e) return;
   Object.assign(e, { rx: e.x, ry: e.y, lx: 0, ly: 0, hop: 0, flash: 0, hurt: 0 });
-  for (const k of ["knock", "squash", "pose", "itemPose", "motion", "walkP", "fallT", "atkP", "revealT", "hidden"]) delete e[k];   // hidden: 呼ばれて出てくる演出の途中で書き残されたもの
+  for (const k of ["knock", "squash", "pose", "itemPose", "motion", "walkP", "strikeP", "specialT", "fallT", "atkP", "revealT", "hidden"]) delete e[k];   // hidden: 呼ばれて出てくる演出の途中で書き残されたもの
 }
 /**
  * 書き残した冒険から再開する（タイトルの C キー）。
@@ -4150,6 +4309,8 @@ function updateControlVisibility() {
     }
   }
   returnButton.disabled = busy();
+  const groundItem = player && state === "play" ? feetItem() : null;
+  feetButton.textContent = groundItem && groundItem.shop ? "商品を見る" : "足元";
   heroButtons.forEach((button, index) => { button.disabled = !["walk", "attack", "hurt", "eat", "use"].every(action => heroImages.has((index === 0 ? "jorn" : "rati") + "-" + action)); });
   resumeButton.disabled = heroImages.size !== 10;
   if (state === "dead" || state === "clear") backButton.disabled = busy();
@@ -4161,6 +4322,8 @@ new ResizeObserver(fitGameSurface).observe(document.getElementById("stage"));
 window.addEventListener("resize", fitGameSurface);
 fitGameSurface();
 invEl.addEventListener("click", event => {
+  if (event.target.closest("[data-menu-back]")) { pressKey("Escape"); return; }
+  if (event.target.closest("[data-name-save]")) { pressKey("Enter"); return; }
   const arrow = event.target.closest("button[data-page]");
   if (arrow) { if (!arrow.disabled) changeMenuPage(arrow.dataset.page, Number(arrow.dataset.step)); return; }
   const row = event.target.closest(".row");
@@ -4180,9 +4343,13 @@ invEl.addEventListener("click", event => {
 document.getElementById("wrap").addEventListener("contextmenu", event => {
   if (!event.target.closest("input, textarea")) event.preventDefault();
 });
+const messageLog = document.getElementById("log");
+messageLog.addEventListener("pointerdown", () => messageLog.focus({ preventScroll:true }));
+messageLog.addEventListener("blur", () => { messageLog.scrollTop = messageLog.scrollHeight; });
 window.addEventListener("resize", () => {
   if (state === "inv") renderInv(); else if (state === "menu") renderMenu();
 });
+loadWorldArt();
 requestAnimationFrame(loop);
 </script>
 </body>
