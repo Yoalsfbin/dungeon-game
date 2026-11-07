@@ -17,16 +17,28 @@ function ensureEnemyMotion(kind) {
   image.src = "./assets/world/motions/" + kind + ".png";
   return source;
 }
-function enemyMotionFrame(entity, kind, now, loadedSource=null) {
-  const source = loadedSource || ensureEnemyMotion(kind); if (!source || !source.ready) return null;
-  const direction = DungeonMotions.directionFromVector(...(entity.attackDir || entity.dir || [0, 1]));
-  const column = DUNGEON_MOTION_META.directions.indexOf(direction);
+function enemyMotionRow(entity,now) {
   let row = 0;
   if (entity.deathT != null || (entity.hp <= 0 && !entity.pendingDeath)) row = 7;
   else if (entity.hurt && now - entity.hurt < 240) row = 5;
   else if (entity.strikeP != null) row = entity.strikeP < 0.35 ? 3 : entity.strikeP < 0.75 ? 4 : 0;
   else if (entity.walkP != null) row = ((entity.steps || 0) % 2) ? 1 : 2;
   else if (entity.specialT > now || entity.shellT > 0) row = 6;
+  return row;
+}
+const FROG_MOUTHS = [[82.6,90.7],[63.9,92.1],[57.6,96],[33.4,114.2],[78.2,70.5],[137.4,112.6],[124.7,99.2],[90.7,92.6],[82.4,89.5],[55.7,91.5],[55.6,90.3],[34.2,109.2],[79.1,69.8],[137.8,108.3],[124.1,99],[93.3,90.8],[82.9,96.2],[58,88.2],[57.6,99.6],[35.2,101.9],[77.8,67.1],[138.5,110],[124.4,99.9],[94.5,92.8],[83.4,98.6],[56.6,97.9],[49.1,95.4],[28.3,106],[76.9,72.5],[143.1,102.7],[125.7,104.7],[90.6,102.1],[81.5,84.8],[53.6,93.6],[48.4,92.8],[29.3,93.9],[77.8,71.2],[146.5,102],[125.8,104.4],[84.2,92.8],[79.8,86.1],[70.3,81.6],[67.9,94.2],[48.4,93.1],[76.9,71.2],[130.7,91.7],[117.4,93],[88.8,85.7],[82.7,94.8],[61.1,93.4],[48,97.4],[23.6,107],[79.6,70.5],[148.3,109.5],[125.8,102],[93.7,94],[78.9,115.4],[49.1,123.9],[57.1,127.1],[24,125.9],[77.8,86],[141.3,125.9],[118.9,125.9],[93,123.7]];
+function frogMouthOffset(entity,now,size=64) {
+  const direction=DungeonMotions.directionFromVector(...(entity.attackDir||entity.dir||[0,1]));
+  const column=DUNGEON_MOTION_META.directions.indexOf(direction),[x,y]=FROG_MOUTHS[enemyMotionRow(entity,now)*8+column];
+  let horizontal=(x-80)*size/100,vertical=size-2-size*1.4+y*size/100;
+  if(!entity.sleep&&!entity.stun&&entity.strikeP==null&&Math.abs(entity.lx||0)+Math.abs(entity.ly||0)<=.02){const phase=now/520+(entity.x*97+entity.y*31)*.37,b=Math.sin(phase*2)*.025;horizontal*=1-b*.6;vertical=size+(vertical-size)*(1+b);}
+  return [size/2+horizontal,vertical-6];
+}
+function enemyMotionFrame(entity, kind, now, loadedSource=null) {
+  const source = loadedSource || ensureEnemyMotion(kind); if (!source || !source.ready) return null;
+  const direction = DungeonMotions.directionFromVector(...(entity.attackDir || entity.dir || [0, 1]));
+  const column = DUNGEON_MOTION_META.directions.indexOf(direction);
+  const row = enemyMotionRow(entity,now);
   const tier = entity.visualTier || entity.tier || 1, key = [kind, tier, row, column,entity.variant||0].join(":");
   if (enemyMotionFrames.has(key)) {
     const frame = enemyMotionFrames.get(key); enemyMotionFrames.delete(key); enemyMotionFrames.set(key, frame); return frame;
@@ -113,24 +125,25 @@ function loadWorldArt() {
       worldArt.mechanisms.set(key,artCell(mechanisms,[index%4*width,Math.floor(index/4)*height,width,height]));
     });
   }; mechanisms.src="./assets/world/mechanisms.png";
+  const pitfall=new Image();pitfall.onload=()=>{worldArt.mechanisms.set("pit",artCell(pitfall,[95,255,1062,771]));};pitfall.src="./assets/world/pitfall.png";
 }
 function drawMechanism(key, x, y, context=ctx) {
-  if(key==="pit"){
-    context.save();context.translate(x,y);context.scale(TS/64,TS/64);
-    context.fillStyle="#332b23";context.fillRect(9,17,46,38);context.fillStyle="#9b8869";context.fillRect(11,15,42,6);context.fillRect(8,21,6,29);context.fillRect(50,21,6,29);context.fillRect(12,49,40,6);
-    context.fillStyle="#080c14";context.fillRect(16,23,32,24);context.fillStyle="#66513d";context.beginPath();context.moveTo(15,22);context.lineTo(31,27);context.lineTo(25,44);context.lineTo(15,47);context.fill();context.fillStyle="#c6b598";context.fillRect(12,17,4,3);context.fillRect(48,17,4,3);context.restore();return true;
-  }
   const image=worldArt.mechanisms.get(key); if(!image)return false;
   context.drawImage(image,x-2,y-2,TS+4,TS+4); return true;
 }
 function drawWorldTile(type, horizontal, vertical, width, height) {
-  if (!worldArt.terrain) return false;
   const theme = Object.keys(THEMES).find(key => THEMES[key] === THEME), themeIndex = WORLD_THEMES.indexOf(theme);
+  if (!worldArt.terrain) return false;
   if (themeIndex < 0) return false;
   const index = Math.floor(themeIndex / 4) * 12 + type * 4 + themeIndex % 4;
   const tileWidth = worldArt.terrain.width / 4, tileHeight = worldArt.terrain.height / 6;
   ctx.drawImage(worldArt.terrain, index % 4 * tileWidth + 2, Math.floor(index / 4) * tileHeight + 2, tileWidth - 4, tileHeight - 4, horizontal, vertical, width, height);
   return true;
+}
+function drawGoalItem(context,x,y,size,now){
+ context.save();context.translate(x,y);context.scale(size/64,size/64);const b=Math.sin(now/250)*3;
+ context.fillStyle="rgba(0,0,0,.4)";context.beginPath();context.ellipse(32,52,18,6,0,0,7);context.fill();context.fillStyle="#6a5a4a";context.fillRect(18,40,28,12);context.fillStyle="#9a8a76";context.fillRect(18,40,28,3);
+ const g=context.createRadialGradient(28,24+b,2,32,28+b,16);g.addColorStop(0,"#ffffff");g.addColorStop(.3,"#ffe880");g.addColorStop(1,"#d07010");context.fillStyle=g;context.beginPath();context.arc(32,28+b,13,0,7);context.fill();context.strokeStyle=`rgba(255,230,120,${.4+.3*Math.sin(now/200)})`;context.lineWidth=3;context.beginPath();context.arc(32,28+b,19,0,7);context.stroke();context.restore();
 }
 function itemArt(kind) { const key = "item_" + iconOf(kind); return worldArt.icons.get(key) || IMG[key]; }
 function paintIconCanvases(root){root.querySelectorAll("[data-art-icon]").forEach(canvas=>{const image=worldArt.icons.get(canvas.dataset.artIcon);if(image){const context=canvas.getContext("2d");context.imageSmoothingEnabled=false;context.drawImage(image,0,0,128,128);}});}

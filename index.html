@@ -211,6 +211,8 @@ function fitGameSurface() {
   surface.style.width = width + "px"; surface.style.height = width * 9 / 13 + "px";
 }
 const heroImages = new Map();
+const heroPortraits = new Map(), HERO_PORTRAIT_RECTS = {"jorn":[183,6,1113,1018],"rati":[301,7,981,1017]};
+for(const character of ["jorn","rati"]){const image=new Image();image.onload=()=>heroPortraits.set(character,image);image.src="./assets/characters/portraits/"+character+".png";}
 let heroAssetError = false;
 if (window.DungeonMotions) {
   for (const character of ["jorn", "rati"]) for (const action of ["walk", "attack", "hurt", "eat", "use"]) {
@@ -230,6 +232,7 @@ function drawHero(context, entity, now, footX, footY, size) {
     frame = Math.min(3, Math.floor((now - active.t0) / active.ms * 4));
   } else if (entity.atkP != null) { action = "attack"; frame = Math.min(3, Math.floor(entity.atkP * 4)); }
   else if (entity.walkP != null) { action = "walk"; frame = ((entity.steps || 0) % 2) * 2 + Math.min(1, Math.floor(entity.walkP * 2)); }
+  else if((entity===player||entity===ally)&&state!=="title"&&entity.hp>0&&!entity.sleep&&!entity.stun){action="walk";frame=Math.floor(now/180)%4;}
   const requested = action === "idle" ? "walk" : action;
   const image = heroImages.get(character + "-" + requested);
   if (!image) return false;
@@ -586,6 +589,7 @@ function genMap() {
 }
 // 部屋の中に地形を置く。通路の出入口をふさがないよう、水路と溶岩は壁から 1 マス離した内側だけ
 function placeTerrain(theme) {
+  theme={mycelium:"jungle",crystal:"ice",obsidian:"volcano",sealed:"altar"}[theme]||theme;
   const inner = r => ({ x0: r.x + 1, y0: r.y + 1, x1: r.x + r.w - 2, y1: r.y + r.h - 2 });
   const fillRect = (x0, y0, x1, y1, t) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (map[y][x] === 0) map[y][x] = t; };
   const patch = (r, t, maxW, maxH) => { const w = ri(2, Math.min(maxW, r.w - 2)), hh = ri(1, Math.min(maxH, r.h - 2));
@@ -856,8 +860,8 @@ const ITEMS = {
   sc_light: { cat: "魔導書", name: "ともしびの魔導書", desc: "読むと、この階の地図と道具の場所がすべて分かる。",
               use() { lightAll = true; for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) if (!isWallTile(map[y][x])) seen[y][x] = true;
                       log("フロア全体が明るく照らされた！"); fxStep(() => { flashScreen("rgba(255,255,230,0.75)", 450); ring(player, "#fffbe0", 6, 600); }, 300); } },
-  sc_ident: { cat: "魔導書", name: "見抜きの魔導書", desc: "読むと、持ち物の正体を 1 つ見破る。",
-              use() { const o = player.inv.find(o => !known.has(o.kind));
+  sc_ident: { cat: "魔導書", name: "見抜きの魔導書", desc: "読むと、選んだ持ち物の正体を1つ見破る。",
+              use(o) {
                       if (!o) { log("しかし、何も起こらなかった。"); return; }
                       known.add(o.kind); log(`${ITEMS[o.kind].name}だと分かった。`); fxStep(() => { rise(player, "#c0e0ff", 12); ring(player, "#c0e0ff", 0.9); }, 250); } },
   sc_sleep: { cat: "魔導書", name: "子守歌の魔導書", desc: "読むと、同じ部屋にいる敵がしばらく眠る。",
@@ -958,7 +962,7 @@ const ITEMS = {
   ring_power: { cat: "腕輪", name: "剛力の腕輪", atk: 2, desc: "装備していると、攻撃力が 2 上がる。" },
   ring_belly: { cat: "腕輪", name: "腹持ちの腕輪", desc: "装備していると、おなかが減る速さが半分になる。" },
   ar_stone: { cat: "矢", name: "石つぶて", power: 3, range: 5, desc: "装備して撃つ（F キー）。5 マス先まで届き、当たった敵に 3 前後のダメージ。弱いが、たくさん落ちている。" },
-  pot_ident: { cat: "壺", name: "見抜きの壺", desc: "道具を 3 つまで入れておける。入れた道具は正体が分かる。中身を出すには投げて割る。" },
+  pot_ident: { cat: "壺", name: "見抜きの壺", desc: "容量は3〜6個。入れた道具は正体が分かる。中身を出すには投げて割る。" },
   w_spear:  { cat: "武器", name: "長柄の槍", atk: 5, reach: true, desc: "装備すると攻撃力が 5 上がる。2 マス先の敵にも届き、目の前の敵と一緒に突ける。" },
   w_axe:    { cat: "武器", name: "石割りの大斧", atk: 11, desc: "装備すると攻撃力が 11 上がる。重いので、装備している間はおなかが減りやすい。" },
   s_spike:  { cat: "盾",   name: "とげの盾", def: 5, desc: "装備すると防御力が 5 上がる。隣接した敵の通常攻撃にだけ 2 のダメージを返す。矢・魔法・特殊攻撃は反射しない。" },
@@ -995,11 +999,11 @@ const ITEMS = {
               zap(m) { const [dx, dy] = player.dir; let n = 0;
                        while (dist(m, player) > 1 && canStep(m.x, m.y, -dx, -dy) && !occupied(m.x - dx, m.y - dy) && n < 12) { moveEnt(m, m.x - dx, m.y - dy); n++; }
                        m.dir = [-dx, -dy]; log(n ? `${m.name}を引き寄せた。` : `${m.name}は動かなかった。`); } },
-  pot_heal: { cat: "壺", name: "回復の壺", desc: "道具を 3 つまで入れておける。階を降りるたびに、中の薬草が 1 つ いやし草 に育つ。中身を出すには投げて割る。" },
+  pot_heal: { cat: "壺", name: "回復の壺", desc: "押すとHPが全回復する。使用回数は3〜6回。道具を入れることはできない。" },
   ring_regen: { cat: "腕輪", name: "再生の腕輪", desc: "装備していると HP の回復が 3 倍速くなるが、おなかも減りやすくなる。" },
   ring_thief: { cat: "腕輪", name: "盗賊よけの腕輪", desc: "装備していると、敵に持ち物を盗まれない。" },
   gold:     { cat: "お金", name: "金貨", desc: "拾うと所持金になる。店で道具を買える。" },
-  pot:      { cat: "壺", name: "保存の壺", desc: "道具を 3 つまで入れておける。「のぞく」で中を見て取り出せる。" },
+  pot:      { cat: "壺", name: "保存の壺", desc: "容量は3〜6個。「のぞく」で中を見て取り出せる。" },
 };
 const CAT_ORDER = ["武器", "盾", "腕輪", "矢", "草", "食料", "魔導書", "杖", "壺"];
 const MAX_INVENTORY = 20;
@@ -1017,10 +1021,10 @@ const ITEM_POOL = [["herb", 20], ["bigherb", 6], ["power", 3], ["eyedrop", 4], [
 let known, fakeName, lightAll = false;
 function newItem(kind) {
   const o = { kind };
-  if (ITEMS[kind].cat === "杖") o.charges = ri(3, 5);
+  if (ITEMS[kind].cat === "杖") o.charges = ri(1, 6);
   if (ITEMS[kind].cat === "矢") o.count = ri(6, 12);
   if (kind === "gold") o.amount = ri(30, 90) + floor * 15;
-  if (ITEMS[kind].cat === "壺") o.contents = [];
+  if (ITEMS[kind].cat === "壺") {o.capacity=ri(3,6);if(kind==="pot_heal")o.charges=o.capacity;else o.contents=[];}
   return o;
 }
 function randomItem() {
@@ -1045,7 +1049,8 @@ function priceOf(o) {
   if (D.cat === "盾") return (D.def * 110) + (o.plus || 0) * 100;
   if (D.cat === "矢") return D.power * 3 * (o.count || 1);
   if (D.cat === "杖") return (PRICE_BY_KIND[o.kind] || 150) + (o.charges || 0) * 50;              // 残り回数が多いほど高い
-  if (D.cat === "壺") return (PRICE_BY_KIND[o.kind] || 200) + (3 - (o.contents || []).length) * 50;   // 空きが多いほど高い
+  if(o.kind==="pot_heal")return 200+(o.charges??3)*100;
+  if (D.cat === "壺") return (PRICE_BY_KIND[o.kind] || 200) + ((o.capacity??3) - (o.contents || []).length) * 50;
   return PRICE_BY_KIND[o.kind] || PRICE_BY_CAT[D.cat];
 }
 const sellPriceOf = o => Math.floor(priceOf(o) / 2);
@@ -1054,7 +1059,8 @@ function itemName(o) {
   let n = known.has(o.kind) ? ITEMS[o.kind].name : nick[o.kind] ? `${fakeName[o.kind]}〈${nick[o.kind]}〉` : fakeName[o.kind];
   if (o.plus) n += o.plus > 0 ? `+${o.plus}` : `${o.plus}`;
   if (known.has(o.kind) && o.charges !== undefined) n += `[${o.charges}]`;
-  if (o.contents) n += `[${3 - o.contents.length}]`;
+  else if(o.charges!==undefined&&o.used)n+=`（-${o.used}）`;
+  if (o.contents&&o.kind!=="pot_heal") n += `[${(o.capacity??3) - o.contents.length}]`;
   if (o.count !== undefined) n += ` ${o.count}本`;
   if (o.plated) n += "〔金〕";
   if (o.kind === "gold") n = `金貨 ${o.amount} 枚`;
@@ -1117,15 +1123,20 @@ function triggerTrap(t) {
   }
   if (t.kind === "hunger") { player.food = Math.max(0, player.food - 10); fxStep(() => { sparks(at, "#e0a040", 12, 0.04, 0.01); popup(player, "満腹-10", "#e0a040"); }, 250); }
   if (t.kind === "warp") {
-    const p = freeSpot();
+    const p = warpDestination(at);
     if(p){
       player.x=p.x;player.y=p.y;
       fxStep(()=>{sfx("warp");ring(at,"#60c0ff",1.8,500);rise(at,"#d3f4ff",20);},160);
       queue.push({dur:300,update(progress){player.warpScale=1-progress;player.rx=at.x;player.ry=at.y;}});
       queue.push({dur:160,update(){player.warpScale=0;},end(){player.rx=p.x;player.ry=p.y;updateSeen();sfx("arrive");ring(p,"#80e8ff",1.8,500);rise(p,"#d3f4ff",20);}});
       queue.push({dur:320,update(progress){player.warpScale=progress;},end(){delete player.warpScale;}});
-    }
+    }else log("しかし、移動できる場所がなかった。");
   }
+}
+function warpDestination(from){
+ const spots=[];for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++)if(tileAt(x,y)===TILE.FLOOR&&!occupied(x,y)&&!items.some(i=>i.x===x&&i.y===y)&&!traps.some(t=>t.x===x&&t.y===y)&&!(stairs?.x===x&&stairs?.y===y)&&!(goal?.x===x&&goal?.y===y))spots.push({x,y});
+ const distant=spots.filter(p=>dist(p,from)>=4),other=distant.filter(p=>roomAt(p.x,p.y)!==roomAt(from.x,from.y)),choices=other.length?other:distant.length?distant:spots;
+ return choices.length?choices[ri(0,choices.length-1)]:null;
 }
 // 敵の ID。種族と Lv の組を 1 体の敵として番号で呼ぶ（階ごとの出現表はこの番号で書く）
 const ENEMIES = {
@@ -1236,29 +1247,34 @@ function doorsOf(r) {
   return ds;
 }
 function makeShop(r) {
-  const door = doorsOf(r)[0] || { x: r.cx, y: r.cy, out: [0, 1] };
-  // 店主のふだんの立ち位置: 入口のすぐ内側の横（壁ぞい）。入口と、入口からまっすぐ奥のマスは空けておく
-  const inward = { x: door.x - door.out[0], y: door.y - door.out[1] };
-  const sides = [[door.out[1], door.out[0]], [-door.out[1], -door.out[0]]].map(([sx, sy]) => ({ x: door.x + sx, y: door.y + sy }))
-    .filter(q => roomAt(q.x, q.y) === r && map[q.y][q.x] === TILE.FLOOR);
-  const side = sides[0] || inward;
-  const keepClear = [door, inward, side].map(q => q.x + "," + q.y);
+  const doors=[...new Map(doorsOf(r).map(d=>[d.x+","+d.y,d])).values()];if(!doors.length)doors.push({x:r.cx,y:r.cy,out:[0,1]});
+  const doorTiles=new Set(doors.map(d=>d.x+","+d.y)),reserved=new Set(doorTiles),posts=[];
+  for(const door of doors){
+    const inward={x:door.x-door.out[0],y:door.y-door.out[1]},candidates=[];
+    for(let y=r.y;y<r.y+r.h;y++)for(let x=r.x;x<r.x+r.w;x++)if(tileAt(x,y)===TILE.FLOOR&&!reserved.has(x+","+y)&&!(player.x===x&&player.y===y)&&!(ally&&ally.x===x&&ally.y===y))candidates.push({x,y});
+    candidates.sort((a,b)=>dist(a,door)-dist(b,door));const side=candidates[0];if(!side)continue;
+    posts.push({door,side});reserved.add(side.x+","+side.y);reserved.add(inward.x+","+inward.y);
+  }
+  if(!posts.length)return;
+  const {door,side}=posts[0],keepClear=[...reserved];
   const spots = [];
   for (let y = r.y + 1; y < r.y + r.h - 1; y++) for (let x = r.x + 1; x < r.x + r.w - 1; x++)
     if (map[y][x] === TILE.FLOOR && !(player.x === x && player.y === y) && !(ally && ally.x === x && ally.y === y) && !(stairs.x === x && stairs.y === y) && !keepClear.includes(x + "," + y)) spots.push({ x, y });
   if (!spots.length) return;                                     // 商品を置ける床がない部屋は店にしない
-  shop = { room: r, angry: false, keeper: null, door, side };
+  shop = { room: r, angry: false, keeper: null, keepers:[], doors, door, side };
   items = items.filter(i => roomAt(i.x, i.y) !== r); traps = traps.filter(t => roomAt(t.x, t.y) !== r);
   monsters = monsters.filter(m => roomAt(m.x, m.y) !== r);       // 店の中の敵は先にどかしてから商品を並べる
   spots.sort(() => R() - 0.5).slice(0, 12).forEach(q => { let it = randomItem(); while (it.kind === "gold") it = randomItem(); items.push({ ...it, ...q, shop: true }); });
-  const k = makeMonster("keeper", 1, side.x, side.y); k.peaceful = true; monsters.push(k); shop.keeper = k;
+  for(const post of posts){const k=makeMonster("keeper",1,post.side.x,post.side.y);Object.assign(k,{peaceful:true,homeDoor:post.door,homeSide:post.side});monsters.push(k);shop.keepers.push(k);}
+  shop.keeper=shop.keepers[0];
 }
+function shopKeepers(){return (shop?.keepers||[shop?.keeper]).filter(k=>k&&monsters.includes(k));}
 function startTheft(why) {
   if (!shop || shop.angry) return;
   shop.angry = true;
   player.inv.forEach(o => { delete o.unpaid; });
   log(why || "泥棒だー！　番兵さん、こっちです！");
-  const k = shop.keeper; if (k && monsters.includes(k)) { k.peaceful = false; k.awake = true; k.hasteT = 9999; }
+  for(const k of shopKeepers()){k.peaceful=false;k.awake=true;k.hasteT=9999;}
   for (let i = 0; i < 3; i++) { const q = freeSpot(roomAt(player.x, player.y)); if (!q) continue;
     const g = makeMonster("guard", 1, q.x, q.y); g.awake = true; g.hasteT = 9999; monsters.push(g); }
   fxSeq(() => { flashScreen("rgba(255,30,30,0.45)", 500); shake(400, 8); }, 500);
@@ -1734,18 +1750,10 @@ function openDebug() {
              onOk: i => { const it = dbgList(dbgm.tab)[i]; closeMenu(); dbgPlace(it); },
              onKey: low => { if (low === "c") { closeMenu(); monsters = monsters.filter(m => m.peaceful); log("敵をすべて消した。"); } else if (low === "g") closeMenu(); } });
 }
-/** 回復の壺: 持っている壺ごとに、中の薬草を 1 つ いやし草 にする */
-function growHerbs() {
-  for (const pot of player.inv.filter(o => o.kind === "pot_heal")) {
-    const h = pot.contents.find(o => o.kind === "herb");
-    if (h) { h.kind = "bigherb"; log("回復の壺の中で、薬草が いやし草 に育った。"); }
-  }
-}
 function descend(fromPit = false) {
   if (floor >= LAST_FLOOR) return;
   if (player.inv.some(o => o.unpaid)) { player.inv.forEach(o => { delete o.unpaid; }); log("代金を払わずに階段を降りてしまった…"); }
   floor++;
-  growHerbs();
   newFloor();
   fxStep(() => { flashScreen("rgba(0,0,0,0.9)", 400); sfx(fromPit ? "landing" : "stairs"); if(fromPit)shake(180,4); }, 1);
 }
@@ -1931,9 +1939,10 @@ function kill(m, by) {
     if(by&&monsters.includes(by))levelUpMonster(by);
     return;
   }
-  if (shop && m === shop.keeper && !(m.revive && !m.sealed)) {
-    items.forEach(i => { delete i.shop; }); player.inv.forEach(o => { delete o.unpaid; }); shop.keeper = null;shop.debt=0;
-    log("店主がいなくなり、店の品はただになった。");
+  if (shop && shopKeepers().includes(m) && !(m.revive && !m.sealed)) {
+    shop.keepers=shopKeepers().filter(k=>k!==m);shop.keeper=shop.keepers[0]||null;
+    if(!shop.keeper){items.forEach(i=>{delete i.shop;});player.inv.forEach(o=>{delete o.unpaid;});shop.debt=0;log("店主がいなくなり、店の品はただになった。");}
+    else if(!shop.angry)startTheft("店主「仲間に何をする！」　番兵さん、こっちです！");
   }
   if (m.revive && !m.sealed) {
     m.revive = false; m.hp = Math.round(m.maxhp / 2);
@@ -2131,8 +2140,9 @@ function placeTrapBy(m, x, y) { // 通路・入り口にも見える罠を作る
 }
 function monsterAct(m) {
   if (m.peaceful) {                                              // おとなしい店主
+    if(!shop)return;
     const block = hasShopDebt() && roomAt(player.x, player.y) === shop.room;
-    const to = block ? shop.door : shop.side;
+    const to = block ? (m.homeDoor||shop.door) : (m.homeSide||shop.side);
     if ((m.x !== to.x || m.y !== to.y) && !occupied(to.x, to.y)) {
       if (dist(m, to) <= 1) moveEnt(m, to.x, to.y); else stepToward(m, to.x, to.y);
     }
@@ -2386,7 +2396,7 @@ function endTurn() {
   turn++;
   checkHouse();
   if (shop && !shop.angry && roomAt(player.x, player.y) !== shop.room && hasShopDebt()) startTheft();
-  if (shop && !shop.angry && shop.keeper && shop.keeper.hp < shop.keeper.maxhp) startTheft("店主「なにをする！」　番兵さん、こっちです！");   // ダメージを与えた時だけ敵になる
+  if (shop && !shop.angry && shopKeepers().some(k=>k.hp<k.maxhp)) startTheft("店主「なにをする！」　番兵さん、こっちです！");
   greetAtShop();
   allyAct();
   const skipMon = player.fastT > 0 && (player.fastT-- % 2 === 0);   // 早足: 敵は 2 回に 1 回しか動かない
@@ -2484,7 +2494,7 @@ function drawTerrain(t, x, y, X, Y, now) {
   if (t === TILE.WATER || t === TILE.LAVA) {
     const water = t === TILE.WATER, f = Math.floor(now / (water ? 260 : 330)) % 4;
     if(!drawSurface(water?"water":"lava",f,X,Y,TS))ctx.drawImage(water ? TERRAIN_TILES.water(x, y, f) : TERRAIN_TILES.lava[f], X, Y, TS, TS);
-    if (water) { edge("#0a1a2a", 4); ctx.fillStyle = "rgba(220,240,255,0.55)"; if (tileAt(x, y - 1) !== t) ctx.fillRect(X, Y + 4, TS, 2); }   // 岸の影と、白い波打ちぎわ
+    if (water) { edge("rgba(8,25,37,.35)",2);ctx.fillStyle="rgba(205,235,250,.3)";if(tileAt(x,y-1)!==t)for(let n=4;n<TS;n+=12)ctx.fillRect(X+n,Y+1+(Math.floor(now/260+n)%2),5,1); }
     else { edge("#1a0804", 4); if (Math.sin(now / 260 + x * 1.7 + y) > 0.92) { ctx.fillStyle = "#ffe890"; ctx.fillRect(X + 16 + r() * 28, Y + 16 + r() * 28, 6, 6); } }   // 泡がはじける
   } else if (t === TILE.ICE) {
     if(!drawSurface("ice",Math.floor(now/800)%4,X,Y,TS))ctx.drawImage(TERRAIN_TILES.ice[(x * 7 + y * 3) % 4], X, Y, TS, TS);
@@ -2724,13 +2734,7 @@ function draw(now = performance.now()) {
     ctx.drawImage(itemArt(m.disguise), sx(m.x) + 12, sy(m.y) + 10, 40, 40);
   }
   if (goal && seen[goal.y][goal.x]) {                      // はじまりの宝玉: 台座の上で光る玉
-    const X = sx(goal.x), Y = sy(goal.y), b = Math.sin(now / 250) * 3;
-    ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.beginPath(); ctx.ellipse(X + 32, Y + 52, 18, 6, 0, 0, 7); ctx.fill();
-    ctx.fillStyle = "#6a5a4a"; ctx.fillRect(X + 18, Y + 40, 28, 12); ctx.fillStyle = "#9a8a76"; ctx.fillRect(X + 18, Y + 40, 28, 3);
-    const g = ctx.createRadialGradient(X + 28, Y + 24 + b, 2, X + 32, Y + 28 + b, 16);
-    g.addColorStop(0, "#ffffff"); g.addColorStop(0.3, "#ffe880"); g.addColorStop(1, "#d07010");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(X + 32, Y + 28 + b, 13, 0, 7); ctx.fill();
-    ctx.strokeStyle = `rgba(255,230,120,${0.4 + 0.3 * Math.sin(now / 200)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(X + 32, Y + 28 + b, 19, 0, 7); ctx.stroke();
+    drawGoalItem(ctx,sx(goal.x),sy(goal.y),TS,now);
   }
   for (const it of items) if (visible(it.x, it.y)) {
     ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.beginPath(); ctx.ellipse(sx(it.x) + 32, sy(it.y) + 50, 15, 5, 0, 0, 7); ctx.fill();
@@ -2857,6 +2861,26 @@ function draw(now = performance.now()) {
   for (const c of corpses) { if(c.pending){if(visible(c.e.x,c.e.y))drawEnt(c.e,c.e.kind);continue;}const p = (now - c.t0) / 420; c.e.flash = p < 0.5 ? now + 30 : 0; c.e.squash = { t0: c.t0, ms: 840 };
     if (p < 0.5 || Math.floor(p * 10) % 2 === 0) drawEnt(c.e, c.e.kind, 1 - p * 0.9); }
   // 奥（上）にいるものから順に描く
+  const tongueBehind=o=>o.kind==="tongue"&&(o.a.attackDir||o.a.dir||[0,1])[1]<0;
+  const drawLineEffect=o=>{
+    const mouth=o.kind==="tongue"?frogMouthOffset(o.a,now,TS):[TS/2,TS/2-6];
+    const ax=sx(o.a.rx+(o.a.lx||0))+mouth[0],ay=sy(o.a.ry+(o.a.ly||0)-(o.a.hop||0))+mouth[1];
+    const bx = sx(o.b.rx + (o.b.lx || 0)) + TS / 2, by = sy(o.b.ry + (o.b.ly || 0)) + TS / 2;
+    const ln = (w, c, x0, y0, x1, y1) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); };
+    ctx.lineCap = "round";
+    if (o.kind === "tongue") {
+      const ex = ax + (bx - ax) * o.p, ey = ay + (by - ay) * o.p;
+      ln(12, "#3a0c18", ax, ay, ex, ey); ln(8, "#f07898", ax, ay, ex, ey); ln(2, "#ffc8d8", ax, ay - 2, ex, ey - 2);
+      ctx.fillStyle = "#3a0c18"; ctx.beginPath(); ctx.arc(ex, ey, 8, 0, 7); ctx.fill();
+      ctx.fillStyle = "#f47898"; ctx.beginPath(); ctx.arc(ex, ey, 6, 0, 7); ctx.fill();
+    } else {
+      const g = Math.min(1, o.p * 3), al = o.p < 0.7 ? 1 : (1 - o.p) / 0.3, ex = ax + (bx - ax) * g, ey = ay + (by - ay) * g;
+      ctx.globalAlpha = al * 0.5; ln(18 + Math.sin(now / 20) * 3, "#8040e0", ax, ay, ex, ey);
+      ctx.globalAlpha = al; ln(9, "#c890ff", ax, ay, ex, ey); ln(3, "#ffffff", ax, ay, ex, ey); ctx.globalAlpha = 1;
+    }
+    ctx.lineCap = "butt";
+  };
+  for(const o of lineFxs)if(tongueBehind(o))drawLineEffect(o);
   const ents = monsters.filter(m => !m.hidden && !m.disguise && !(m.ai === "shadow" && dist(m, player) > 1 && !(m.flash > now))).filter(m => visible(m.x, m.y) || visible(Math.round(m.rx), Math.round(m.ry))).map(m => [m, m.kind]);
   ents.push([player, player.sprite]);
   if (ally && actorOnMap(ally)) ents.push([ally, ally.sprite]);
@@ -2946,23 +2970,7 @@ function draw(now = performance.now()) {
     ctx.beginPath(); ctx.moveTo(X, Y - L); ctx.lineTo(X + W_, Y); ctx.lineTo(X, Y + L); ctx.lineTo(X - W_, Y); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(X, Y, 7 * (1 - k) * m.size, 0, 7); ctx.fill(); ctx.globalAlpha = 1; }
   // 舌と光線
-  for (const o of lineFxs) {
-    const ax = sx(o.a.rx + (o.a.lx || 0)) + TS / 2, ay = sy(o.a.ry + (o.a.ly || 0)) + TS / 2 + (o.kind === "tongue" ? 12 : -6);
-    const bx = sx(o.b.rx + (o.b.lx || 0)) + TS / 2, by = sy(o.b.ry + (o.b.ly || 0)) + TS / 2;
-    const ln = (w, c, x0, y0, x1, y1) => { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); };
-    ctx.lineCap = "round";
-    if (o.kind === "tongue") {
-      const ex = ax + (bx - ax) * o.p, ey = ay + (by - ay) * o.p;
-      ln(12, "#3a0c18", ax, ay, ex, ey); ln(8, "#f07898", ax, ay, ex, ey); ln(2, "#ffc8d8", ax, ay - 2, ex, ey - 2);
-      ctx.fillStyle = "#3a0c18"; ctx.beginPath(); ctx.arc(ex, ey, 8, 0, 7); ctx.fill();
-      ctx.fillStyle = "#f47898"; ctx.beginPath(); ctx.arc(ex, ey, 6, 0, 7); ctx.fill();
-    } else {
-      const g = Math.min(1, o.p * 3), al = o.p < 0.7 ? 1 : (1 - o.p) / 0.3, ex = ax + (bx - ax) * g, ey = ay + (by - ay) * g;
-      ctx.globalAlpha = al * 0.5; ln(18 + Math.sin(now / 20) * 3, "#8040e0", ax, ay, ex, ey);
-      ctx.globalAlpha = al; ln(9, "#c890ff", ax, ay, ex, ey); ln(3, "#ffffff", ax, ay, ex, ey); ctx.globalAlpha = 1;
-    }
-    ctx.lineCap = "butt";
-  }
+  for(const o of lineFxs)if(!tongueBehind(o))drawLineEffect(o);
   // 胞子の雲
   puffs = puffs.filter(p => now - p.t0 < p.life);
   for (const p of puffs) {
@@ -3171,7 +3179,7 @@ function drawTitle(now = performance.now()) {
   drawTitleLogo(ctx,76,8,W-152,76);
   ctx.font="bold 20px monospace";ctx.strokeText(title,W/2,107);ctx.fillStyle="#e8c040";ctx.fillText(title,W/2,107);
   [["viking", "1", "ヨルン", "北の雪国の見習い戦士"], ["ranger", "2", "ラティ", "南の密林の見回り役"]].forEach(([k, key, name, sub], i) => {
-    const cx = W / 2 + (i ? 170 : -170), base = 300;
+    const cx = W / 2 + (i ? 170 : -170), base = 320;
     // 上からのあかりと、石の台
     const lg = ctx.createRadialGradient(cx, base - 40, 10, cx, base - 40, 150); lg.addColorStop(0, "rgba(255,200,120,0.28)"); lg.addColorStop(1, "rgba(255,160,80,0)");
     ctx.fillStyle = lg; ctx.fillRect(cx - 160, base - 200, 320, 300);
@@ -3179,14 +3187,13 @@ function drawTitle(now = performance.now()) {
     ctx.fillStyle = "#5a4c3e"; ctx.beginPath(); ctx.ellipse(cx, base, 78, 18, 0, 0, 7); ctx.fill();
     ctx.fillStyle = "#7a6a58"; ctx.beginPath(); ctx.ellipse(cx, base - 2, 70, 13, 0, 0, 7); ctx.fill();
     ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.beginPath(); ctx.ellipse(cx, base - 4, 34, 8, 0, 0, 7); ctx.fill();
-    // 主人公（呼吸でふくらむ）
-    const b = Math.sin(now / 420 + i * 2) * 0.025;
-    ctx.save(); ctx.translate(cx, base - 4); ctx.scale(1 - b * 0.6, 1 + b);
-    if (!drawHero(ctx, { sprite:k, dir:[-1,1] }, now, 0, 10, 248)) {
-      ctx.font = "16px monospace"; ctx.fillStyle = "#c9bea4";
-      ctx.fillText(heroAssetError ? "画像を読み込めません" : "読み込み中…", 0, -60);
+    const character=k==="viking"?"jorn":"rati",portrait=heroPortraits.get(character);
+    if(portrait){
+      const [x,y,width,height]=HERO_PORTRAIT_RECTS[character],scale=Math.min(310/width,202/height);
+      ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(portrait,x,y,width,height,cx-width*scale/2,base-height*scale,width*scale,height*scale);ctx.restore();
+    }else if(!drawHero(ctx,{sprite:k,dir:[-1,1]},now,cx,base,210)){
+      ctx.font="16px monospace";ctx.fillStyle="#c9bea4";ctx.fillText(heroAssetError?"画像を読み込めません":"読み込み中…",cx,base-60);
     }
-    ctx.restore();
     // 名札
     const bx = cx - 120, by = base + 36;
     ctx.fillStyle = "rgba(10,14,42,0.92)"; ctx.fillRect(bx, by, 240, 74);
@@ -3379,7 +3386,7 @@ function feetOptions() {
   const it = feetItem(), opts = [];
   if (it) {
     opts.push({ label: it.shop ? "商品を持つ（未払い）" : "拾う", run: () => pickUp(it) });
-    for (const option of itemOptions(it, -1, true).filter(option => ["食べる", "読む", "振る", "撃つ", "投げる"].includes(option.label))) opts.push(option);
+    for (const option of itemOptions(it, -1, true).filter(option => ["食べる", "読む", "振る", "押す", "撃つ", "投げる"].includes(option.label))) opts.push(option);
     opts.push({ label: "交換", off: !player.inv.length, run: () => {
       if (!player.inv.length) return false;
       menu.swap = it; menu.sub = null; menu.cur = feetLabel() ? 1 : 0; renderInv(); return false; } });
@@ -3397,6 +3404,14 @@ function itemOptions(o, idx, ground = false) {
     if (D.cat === "草") player.food = Math.min(player.foodMax, player.food + 5);       // 草も少しおなかがふくれる
     return true; } });
   if (D.cat === "魔導書") opts.push({ label: "読む", run: () => {
+    if(o.kind==="sc_ident"){
+      const targets=player.inv.filter(item=>item!==o);
+      if(!targets.some(item=>!known.has(item.kind))){log("まだ見抜いていない持ち物がない。");return false;}
+      openMenu({returnState:"inv",title:()=>"見破る道具を選ぶ",rows:()=>targets.map(item=>({label:itemName(item),icon:"item_"+iconOf(item.kind),dim:known.has(item.kind)})),
+        onOk:i=>{const target=targets[i];if(known.has(target.kind)){log("その道具の正体は、もう分かっている。");return;}take(true);known.add(o.kind);closeMenu();hideInv();D.use(target);player.itemPose={kind:"use",t0:NOW(),ms:280};itemFeedback(o.kind);endTurn();},
+        onBack:()=>showInv()});
+      return "noturn";
+    }
     take(true); if (!known.has(o.kind)) { known.add(o.kind); log(`それは${D.name}だった。`); } D.use(); return true; } });
   if (D.cat === "杖") opts.push({ label: "振る", run: () => { if(o.charges>0)claimGround(o); zapStaff(o); return true; } });
   if (D.cat === "矢") {
@@ -3419,7 +3434,8 @@ function itemOptions(o, idx, ground = false) {
                               equipFx = { kind: o.kind, t0: NOW() }; }, 350);
       return true; } });
   }
-  if (o.contents) opts.push({ label: "のぞく", run: () => { menu.pot = { o, cur: 0 }; menu.sub = null; renderInv(); return false; } });
+  if(o.kind==="pot_heal")opts.push({label:"押す",run:()=>{if((o.charges??3)<=0){log("壺はもう空っぽだ。");return false;}if(player.hp>=player.maxhp){log("HPは満タンだ。");return false;}claimGround(o);o.charges=(o.charges??3)-1;player.hp=player.maxhp;log("回復の壺を押した。HPが全回復した！");fxSeq(()=>{sfx("heal");rise(player,"#80ffad",20);ring(player,"#80ffad",1.4,450);},300);return true;}});
+  if (o.contents&&(o.kind!=="pot_heal"||o.contents.length)) opts.push({ label: "のぞく", run: () => { menu.pot = { o, cur: 0 }; menu.sub = null; renderInv(); return false; } });
   const equipped = o === player.weapon || o === player.shield || o === player.ring;
   if (!ground && feetItem()) opts.push({ label: "足元と交換", run: () => { if (!swapGround(o)) return false; return true; } });
   if (D.cat !== "矢") opts.push({ label: "投げる", off: equipped, run: () => {
@@ -3433,7 +3449,7 @@ function itemOptions(o, idx, ground = false) {
     items.push({ ...o, x: player.x, y: player.y, ...(inShop ? { forSale: true } : {}) });
     log(inShop ? `${itemName(o)}を置いた。売るなら店主に話しかけよう。` : `${itemName(o)}を足元に置いた。`);
     return true; } });
-  if (!o.contents) for (const pot of player.inv.filter(p => p.contents && p.contents.length < 3)) opts.push({ label: `${ITEMS[pot.kind].name}に入れる`, off: equipped, run: () => {
+  if (!o.contents&&D.cat!=="壺") for (const pot of player.inv.filter(p => p.kind!=="pot_heal"&&p.contents&&p.contents.length<(p.capacity??3))) opts.push({ label: `${itemName(pot)}に入れる`, off: equipped, run: () => {
     if (equipped) return false; take(true); pot.contents.push(o); log(`${itemName(o)}を${itemName(pot)}に入れた。`);
     if (pot.kind === "pot_ident" && !known.has(o.kind)) { known.add(o.kind); log(`それは${ITEMS[o.kind].name}だった。`); }
     return true; } });
@@ -3487,7 +3503,7 @@ const unknownText = "まだ正体が分からない。使ってみるか、見�
  * @returns {{title: string, text: string}|null}
  */
 function peekDesc(rs) {
-  const ofItem = o => ({ title: itemName(o), text: known.has(o.kind) ? ITEMS[o.kind].desc : unknownText });
+  const ofItem = o => {const D=ITEMS[o.kind];let text=known.has(o.kind)?D.desc:unknownText;if(known.has(o.kind)&&o.plus&&["武器","盾"].includes(D.cat)){const base=D.cat==="武器"?D.atk:D.def;text+=`<br>${D.cat==="武器"?"攻撃力":"防御力"} ${base}（${o.plus>0?"＋":"−"}${Math.abs(o.plus)}）＝${base+o.plus}`;}return {title:itemName(o),text};};
   if (menu.pot) { const c = menu.pot.o.contents; return c.length ? ofItem(c[Math.min(menu.pot.cur, c.length - 1)]) : null; }
   const r = rs[menu.cur]; if (!r) return null;
   if (!r.feet) return ofItem(r.o);
@@ -3529,7 +3545,7 @@ function invKey(e) {
     if (ok) {
       const selectedAction = menu.sub.opts[menu.sub.cur];
       const done = selectedAction.run();
-      if (done === true && ["読む", "振る", "撃つ", "投げる"].includes(selectedAction.label)) player.itemPose = { kind: "use", t0: NOW(), ms: 280 };
+      if (done === true && ["読む", "振る", "押す", "撃つ", "投げる"].includes(selectedAction.label)) player.itemPose = { kind: "use", t0: NOW(), ms: 280 };
       if (done === "noturn") return;
       if (done) { hideInv(); endTurn(); return; }
     }
@@ -3593,7 +3609,7 @@ function throwItem(o) {
   const { x, y, hit } = lineTarget(10);
   log(`${player.name}は${itemName(o)}を投げた。`);
   flyAnim(o.kind, x, y);
-  if (o.contents) {
+  if (o.contents || ITEMS[o.kind].cat==="壺") {
     if (hit) {
       const damage = 2 + ri(0, 1); hit.hp -= damage; hit.awake = true; hit.sleep = 0;
       log(`${itemName(o)}は${hit.name}に当たって割れた。${damage} のダメージ。`);
@@ -3601,7 +3617,7 @@ function throwItem(o) {
       if (hit.hp <= 0) kill(hit);
     } else log(`${itemName(o)}は落ちた場所で割れた。`);
     fxStep(() => { sfx("potbreak"); sparks({ x, y }, "#c09060", 14, 0.06, 0.01); }, 120);
-    for (const content of o.contents) {
+    for (const content of o.contents||[]) {
       const position = nearFree(x, y);
       if (position) items.push({ ...content, ...position });
       else log(`${itemName(content)}は落ちる場所がなく、失われた。`);
@@ -3664,6 +3680,7 @@ function zapStaff(o) {
   if (o.charges <= 0) { log("しかし、何も起こらなかった。"); return; }
   claimGround(o);
   o.charges--;
+  o.used=(o.used||0)+1;
   const { x, y, hit } = lineTarget(10);
   flyAnim("bolt", x, y, "#a0e0ff");
   if (!hit) { log("魔法弾はどこかへ消えた。"); return; }   // 杖は振っても正体は分からない（起きたことから推理する）
@@ -3823,7 +3840,7 @@ function run(cmd) {
   if(moved === "fell") return;
   if (moved) {
     endTurn();
-    if (state === "play" && map[player.y][player.x] === TILE.BRUSH) { log("草むらをかきわけた。"); endTurn(); }   // 草むらは 1 ターン余分
+    if (state === "play" && map[player.y][player.x] === TILE.BRUSH) { log("草むらをかき分けた。移動にもう1ターンかかった。"); endTurn(); }
     if (onStairs() && state === "play") askStairs();
   }
 }
@@ -4178,7 +4195,7 @@ function saveGame() {
     known: [...known], fakeName, nick, lightAll, allyMet, ally, seed: floorSeed, theme: Object.keys(THEMES).find(k => THEMES[k] === THEME),
     player: { ...player, weapon: slot(player.weapon), shield: slot(player.shield), arrow: slot(player.arrow), ring: slot(player.ring) },
     house: house ? rooms.indexOf(house) : -1,
-    shop: shop ? { ...shop, room: rooms.indexOf(shop.room), keeper: shop.keeper ? monsters.indexOf(shop.keeper) : -1 } : null };
+    shop: shop ? { ...shop, room: rooms.indexOf(shop.room), keeper: shop.keeper ? monsters.indexOf(shop.keeper) : -1,keepers:shopKeepers().map(k=>monsters.indexOf(k)) } : null };
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) {}
 }
 /**
@@ -4205,9 +4222,12 @@ function loadGame() {
   clearDoorwayIce();
   for(const row of map)for(let x=0;x<row.length;x++)if(row[x]===TILE.CRUMBLE)row[x]=TILE.FLOOR;
   player = d.player;
+  const restorePot=o=>{if(!o)return;if(ITEMS[o.kind]?.cat==="壺"){o.capacity=o.capacity??Math.max(3,o.contents?.length||0);if(o.kind==="pot_heal")o.charges=o.charges??o.capacity;}o.contents?.forEach(restorePot);};
+  [...player.inv,...items,...monsters.map(m=>m.carry)].forEach(restorePot);
   for (const k of ["weapon", "shield", "arrow", "ring"]) player[k] = d.player[k] >= 0 ? player.inv[d.player[k]] : null;
   house = d.house >= 0 ? rooms[d.house] : null;
   shop = d.shop ? { ...d.shop, room: rooms[d.shop.room], keeper: d.shop.keeper >= 0 ? monsters[d.shop.keeper] : null } : null;
+  if(shop){shop.keepers=(Array.isArray(d.shop.keepers)?d.shop.keepers:[d.shop.keeper]).map(index=>monsters[index]).filter(Boolean);shop.keeper=shop.keeper||shop.keepers[0]||null;}
   [player, ally, ...monsters].forEach(settle);
   debug = false; THEME = THEMES[d.theme] || THEMES.cave; floorSeed = d.seed; buildTextures(floorSeed); prewarmWater();
   queue = []; cur = null; moves = []; hits = []; corpses = []; popups = []; slashes = []; particles = []; rings = []; bolts = []; lineFxs = []; puffs = [];
