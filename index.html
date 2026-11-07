@@ -3269,6 +3269,7 @@ function renderMenu() {
   paintIconCanvases(invEl);
   invEl.querySelectorAll("[data-monster-preview]").forEach(canvas => {
     const monster = rows[Number(canvas.dataset.monsterPreview)].monster;
+    if (!worldArt.motionKinds.has(monster.kind)) ensureEnemyMotion(monster.kind);
     const image = worldArt.monsters.get(monster.kind + ":" + monster.tier);
     if (image) canvas.getContext("2d").drawImage(image, 0, 0, 128, 128);
   });
