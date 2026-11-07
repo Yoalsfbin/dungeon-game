@@ -782,6 +782,11 @@ function restOnSpawn(m) {
 // 敵のレベルアップ: 1 段階上の名前・色・強さになり、HP は全快
 const disguiseOf = () => ITEM_POOL[ri(0, ITEM_POOL.length - 1)][0];
 function levelUpMonster(m) {
+  if(m===ally){
+    if((m.bonusLevel||0)>=2){log(`${m.name}はこれ以上強くならない。`);return;}
+    m.bonusLevel=(m.bonusLevel||0)+1;m.maxhp+=4;m.hp=m.maxhp;const a=m;
+    log(`${a.name}がレベルアップした！`);levelUpEffect(()=>{ring(a,"#80ffb0",1.3,500);popup(a,"LEVEL UP!","#80ffb0");sfx("levelup");},350);return;
+  }
   if (m.kind === "banjin" || m.tier >= 3) return;
   const old = m.name, n = makeMonster(m.kind, m.tier + 1, m.x, m.y);
   m.visualTier = m.visualTier || m.tier;
@@ -942,7 +947,7 @@ const ITEMS = {
               zap(m) { m.stun = 5; m.frozen = true; log(`${m.name}は凍りついた。`); } },
   st_split: { cat: "杖", name: "分裂の杖", desc: "振ると、当たった敵が 2 匹に増える。",
               zap(m) { const ps = [[0,1],[1,0],[0,-1],[-1,0],[1,1],[-1,-1],[1,-1],[-1,1]].map(([a, b]) => ({ x: m.x + a, y: m.y + b })).filter(q => walkable(q.x, q.y) && !occupied(q.x, q.y));
-                       if (MON[m.kind].boss) { log(`${m.name}は分かれなかった。`); return; }   // 番人は 1 体だけ
+                       if (!MON[m.kind] || MON[m.kind].boss) { log(`${m.name}は分かれなかった。`); return; }
                        if (!ps.length) { log("しかし、何も起こらなかった。"); return; }
                        const q = ps[ri(0, ps.length - 1)], c = makeMonster(m.kind, m.tier, q.x, q.y); c.awake = true; c.hidden = true; monsters.push(c);
                        log(`${m.name}が 2 匹に分かれた！`); fxStep(() => { c.hidden = false; ring(q, "#ffffff", 0.8, 250); squash(c, 300); squash(m, 300); }, 250); } },
@@ -997,6 +1002,7 @@ const ITEMS = {
   pot:      { cat: "壺", name: "保存の壺", desc: "道具を 3 つまで入れておける。「のぞく」で中を見て取り出せる。" },
 };
 const CAT_ORDER = ["武器", "盾", "腕輪", "矢", "草", "食料", "魔導書", "杖", "壺"];
+const MAX_INVENTORY = 20;
 // [種類, 出やすさ]
 const ITEM_POOL = [["herb", 20], ["bigherb", 6], ["power", 3], ["eyedrop", 4], ["numb", 4], ["rice", 12], ["bigmeat", 4], ["rotmeat", 4], ["ar_wood", 6], ["ar_iron", 3], ["ar_stone", 5], ["genki", 3], ["konran", 4], ["hayaashi", 3],
                    ["sc_return", 3], ["sc_sanct", 2], ["sc_gather", 2], ["st_freeze", 4], ["st_split", 2], ["st_trip", 3],
@@ -1316,12 +1322,12 @@ function flushEvents(playerFirst) {
         this.started = true;
         if(!h.still)h.a.attackDir=h.facing||[...(h.a.dir||[0,1])];
         if(!h.still)sfx(h.a.sprite === "viking" ? "axe" : h.a.sprite === "ranger" ? "sword" : "swing");
-        if ((h.a === player || h.a === ally) && !h.still) h.a.motion = { kind:"attack", t0:NOW(), ms:HIT_MS };
+        if (["viking","ranger"].includes(h.a.sprite) && !h.still) h.a.motion = { kind:"attack", t0:NOW(), ms:HIT_MS };
       }
       const [dx,dy]=h.facing||h.a.dir||[0,1], k = h.still ? 0 : Math.sin(p * Math.PI) * (h.far ? 0.6 : 0.35);
       h.a.lx = dx * k; h.a.ly = dy * k;
       if (!h.still) h.a.strikeP = p;
-      if ((h.a === player || h.a === ally) && !h.still) h.a.atkP = p;
+      if (["viking","ranger"].includes(h.a.sprite) && !h.still) h.a.atkP = p;
       if (!this.fired && p >= 0.5) {
         this.fired = true;
         if (h.air) {}
@@ -1329,7 +1335,7 @@ function flushEvents(playerFirst) {
         else {
           h.t.flash = performance.now() + 110; popup(h.t, String(h.d), h.t === player ? "#ff7060" : "#ffffff");
           impact(h.t, h.t === player ? "#ffb0a0" : "#fffbe0", Math.min(1.6, 0.7 + h.d / 20)); h.t.hurt = performance.now();
-          if (h.t === player || h.t === ally) h.t.motion = { kind:"hurt", t0:NOW(), ms:240 };
+          if (["viking","ranger"].includes(h.t.sprite)) h.t.motion = { kind:"hurt", t0:NOW(), ms:240 };
           sfx(h.t === player ? "hurt" : h.killed ? "kill" : "hit");
           if (h.t === player) { shake(180, 6); flashScreen("rgba(255,40,30,0.28)", 200); sparks(player, "#ff6050", 8); }
           else { sparks(h.t, "#fff4c0", 9); sparks(h.t, "#ffb040", 5); h.t.knock = { dx: Math.sign(h.t.x - h.a.x), dy: Math.sign(h.t.y - h.a.y), t0: performance.now() }; }
@@ -1338,7 +1344,7 @@ function flushEvents(playerFirst) {
           for (let i = 0; i < 6; i++) puffs.push({ x0: h.t.x + 0.5, y0: h.t.y + 0.5, x1: h.t.x + 0.5 + (R() - 0.5) * 1.2, y1: h.t.y + 0.1 - R() * 0.6, r: 6 + R() * 5,
             color: "#d8d0c8", t0: NOW() + 120 + i * 30, life: 500 }); }
       }
-    }, end() { h.a.lx = h.a.ly = 0; h.a.strikeP = null; delete h.a.attackDir; if (h.a === player || h.a === ally) h.a.atkP = null; } });
+    }, end() { h.a.lx = h.a.ly = 0; h.a.strikeP = null; delete h.a.attackDir; if (["viking","ranger"].includes(h.a.sprite)) h.a.atkP = null; } });
   if (playerFirst) hs.filter(h => h.a === player).forEach(h => steps.push(hitStep(h)));
   if(mv.length){
     const paths=new Map();for(const move of mv){if(!paths.has(move.e))paths.set(move.e,[]);paths.get(move.e).push(move);}
@@ -1834,13 +1840,13 @@ function pickUp(it) {
     fxStep(() => { sfx("coin"); sparks(player, "#ffffff", 10, 0.04, 0.02); popup(player, `+${it.amount}`, "#e8ecf0"); }, 150); return true;
   }
   delete it.forSale;
-  if (it.shop && player.inv.length < 10) {                     // 店の商品は「未払い」で持つ
+  if (it.shop && player.inv.length < MAX_INVENTORY) {
     items = items.filter(i => i !== it); const o = strip(it); delete o.shop; o.unpaid = true; player.inv.push(o);sfx("pickup");
     log(`${itemName(o)}を拾った。店主に話しかけると買える。`); return true;
   }
   const same = it.count !== undefined && player.inv.find(o => o.kind === it.kind && o.count !== undefined);
   if (same) { items = items.filter(i => i !== it); same.count += it.count; log(`${ITEMS[it.kind].name}を ${it.count} 本拾った。（${same.count} 本）`); return true; }   // 矢はまとめる
-  if (player.inv.length >= 10) { log(`${itemName(it)}の上に乗った。持ち物がいっぱいだ。`); return false; }
+  if (player.inv.length >= MAX_INVENTORY) { log(`${itemName(it)}の上に乗った。持ち物がいっぱいだ。`); return false; }
   items = items.filter(i => i !== it); player.inv.push(strip(it)); log(`${itemName(it)}を拾った。`);
   { const at = { x: it.x, y: it.y }; fxStep(() => { impact(at, "#fff8d0", 0.6); sparks(at, "#fff4b0", 8, 0.04, 0.02); sfx("pickup"); }, 0); }
   return true;
@@ -1920,6 +1926,11 @@ function strike(m) {
   } else { log(`${player.name}の攻撃はからぶった。`); addHits({ a: player, t: m, miss: true }); }
 }
 function kill(m, by) {
+  if(m===ally){
+    log(`${m.name}は倒れてしまった…`);ally=null;flushEvents(false);
+    if(by&&monsters.includes(by))levelUpMonster(by);
+    return;
+  }
   if (shop && m === shop.keeper && !(m.revive && !m.sealed)) {
     items.forEach(i => { delete i.shop; }); player.inv.forEach(o => { delete o.unpaid; }); shop.keeper = null;shop.debt=0;
     log("店主がいなくなり、店の品はただになった。");
@@ -2030,7 +2041,7 @@ const PLAYER_FIRE = [12, 18], PLAYER_FIRE_RANGE = 3;
 /** 火吹き草: 向いている方向へ 3 マス先まで火を吹き、通り道の敵すべてに当てる（壁で止まる） */
 function breathePlayerFire() {
   const [dx, dy] = player.dir; let x = player.x, y = player.y; const hitMs = [];
-  for (let i = 0; i < PLAYER_FIRE_RANGE && canStep(x, y, dx, dy); i++) { x += dx; y += dy; const m = monsters.find(o => o.x === x && o.y === y && !o.peaceful); if (m) hitMs.push(m); }
+  for (let i = 0; i < PLAYER_FIRE_RANGE && canStep(x, y, dx, dy); i++) { x += dx; y += dy; const m = ally&&ally.x===x&&ally.y===y?ally:monsters.find(o => o.x === x && o.y === y && !o.peaceful); if (m) hitMs.push(m); }
   const to = { x, y };
   log(`${player.name}は火吹き草を食べた。口から火を吹いた！`);
   fxStep(() => { sfx("fire"); puffCloud(player, to, "#ff9a30", 22); puffCloud(player, to, "#fff0a0", 8); flashScreen("rgba(255,120,30,0.25)", 220); }, 320);
@@ -2128,6 +2139,10 @@ function monsterAct(m) {
     m.dir = [Math.sign(player.x - m.x) || 0, Math.sign(player.y - m.y) || 1]; return;
   }
   if (m.disguise) return;                                       // 化けているニセモノは動かない
+  if (prefersAlly(m) && m.ai!=="flee") {
+    if(m.shellT>0){m.shellT--;return;}
+    m.awake=true;actAgainstAlly(m);return;
+  }
   if (player.hideT > 0 && !m.awake) { idle(m); return; }       // 気配を消している主人公には気づかない
   if (m.shellT > 0) { m.shellT--; return; }                     // 壺に引っこんでいる
   if (sanctAt(player.x, player.y) && dist(m, player) <= 6) { if (m.awake && R() < 0.5) wander(m); return; }   // 聖域の上の主人公は襲えない
@@ -2196,10 +2211,7 @@ function monsterAct(m) {
   if (m.ai === "archer" && !m.sealed && m.awake && archerSeesPlayer(m) && dist(m, player) >= 2 && lineTo(m, 30) && R() < 0.5) {
     flushEvents(false);
     m.dir = [Math.sign(player.x - m.x), Math.sign(player.y - m.y)];
-    const mm=m, facing=[...m.dir];
-    queue.push({dur:280,update(p){mm.attackDir=facing;mm.strikeP=.1+p*.2;mm.lx=-facing[0]*.08*p;mm.ly=-facing[1]*.08*p;},end(){mm.lx=mm.ly=0;mm.strikeP=.5;}});
-    flyAnim(m.tier >= 3 ? "ar_iron" : "ar_wood", player.x, player.y, null, { x: m.x, y: m.y });
-    fxStep(()=>{mm.strikeP=null;delete mm.attackDir;},0);
+    bowShot(m,player);
     monsterAttack(m, m.atk, "は矢を放った", true);
     flushEvents(false);
     return;
@@ -2280,10 +2292,10 @@ function monstersAct() {
   for (const m of [...monsters]) {
     if (!monsters.includes(m)) continue;
     if (m.stun > 0) { m.stun--; if (!m.stun) m.frozen = false; continue; }   // しびれ・凍った敵は動かない（たたいても解けない）
-    if (m.sleep > 0 && m.doze && dist(m, player) <= 2 && !(player.hideT > 0) && R() < DOZE_WAKE) wake(m);
+    if (m.sleep > 0 && m.doze && ((dist(m, player) <= 2 && !(player.hideT > 0))||(ally?.joined&&dist(m,ally)<=2)) && R() < DOZE_WAKE) wake(m);
     if (abil(m, "regen") && m.hp < m.maxhp && dist(m, player) > 1) m.hp = Math.min(m.maxhp, m.hp + 2);   // 苔の甲羅: 離れている間だけ少しずつ治る（殴り合いでは治らない）
     if (m.sleep > 0) { m.sleep--; continue; }                    // 眠っている敵は動かない
-    if (visible(m.x, m.y) && !(player.hideT > 0)) m.awake = true;
+    if ((visible(m.x, m.y) && !(player.hideT > 0)) || noticesAlly(m)) m.awake = true;
     if ((m.slowed || (m.slow && !abil(m, "quick"))) && (m.tick++ % 2 === 1)) continue;   // 遅い敵は 2 ターンに 1 回
     if (m.confT > 0) { m.confT--; wander(m); continue; }          // 混乱した敵はふらふら歩く
     if (m.fearT > 0) { m.fearT--; stepToward(m, player.x, player.y, true); continue; }   // おびえた敵は逃げる
@@ -3444,7 +3456,7 @@ function renderInv() {
   const inventoryPage = pageWindow(menu.cur, rs.length, limit);
   const list = rs.length ? rs.slice(inventoryPage.start, inventoryPage.end).map((r, index) => { const i = inventoryPage.start + index; return `<div data-index="${i}" class="row${i === menu.cur ? " sel" : ""}">${r.feet ? `【${feetItem() && feetItem().shop ? "商品" : "足元"}】${feetLabel()}` : ic(r.o) + itemName(r.o)}</div>`; }).join("")
                          : `<div class="row dim">なにも持っていない</div>`;
-  const title = menu.swap ? `交換する道具を選ぶ` : `持ち物 ${player.inv.length}/10　<span class="dim">${inputHint("Tab: 整理", "整理ボタンで並べ替え")}</span>`;
+  const title = menu.swap ? `交換する道具を選ぶ` : `持ち物 ${player.inv.length}/${MAX_INVENTORY}　<span class="dim">${inputHint("Tab: 整理", "整理ボタンで並べ替え")}</span>`;
   let html = `<div class="win" data-pane="inventory" data-inactive="${!!(menu.sub || menu.pot)}"><h3>${title}</h3><div class="menu-list">${list}</div>${pageArrows("inventory", inventoryPage)}</div>`;
   if (menu.sub) {
     const optionsPage = pageWindow(menu.sub.cur, menu.sub.opts.length, limit);
@@ -3504,7 +3516,7 @@ function invKey(e) {
     if (c.length && down) menu.pot.cur = (menu.pot.cur + 1) % c.length;
     if (ok && c.length) {
       if (menu.pot.o.kind !== "pot") { log("この壺は、投げて割らないと中身を取り出せない。"); renderInv(); return; }
-      if (player.inv.length >= 10) { log("持ち物がいっぱいで出せない。"); hideInv(); return; }
+      if (player.inv.length >= MAX_INVENTORY) { log("持ち物がいっぱいで出せない。"); hideInv(); return; }
       const o = c.splice(menu.pot.cur, 1)[0]; player.inv.push(o);sfx("pickup"); log(`${itemName(o)}を壺から出した。`); hideInv(); endTurn(); return;
     }
     renderInv(); return;
@@ -3548,7 +3560,7 @@ function lineTarget(range) {
   for (let n = 0; n < range; n++) {
     if (!flyStep(x, y)) break;
     x += dx; y += dy;
-    hit = monsters.find(m => m.x === x && m.y === y);
+    hit = ally&&ally.x===x&&ally.y===y ? ally : monsters.find(m => m.x === x && m.y === y);
     if (hit) break;
   }
   return { x, y, hit };
@@ -3567,7 +3579,7 @@ function shootArrow(o) {
   if (hit && R() < (map[hit.y][hit.x] === TILE.BRUSH ? 0.45 : 0.9)) {   // 草むらにいる敵には当たりにくい
     if (hit.shellT > 0) { log(`${D.name}は${hit.name}の壺にはじかれた。`); return; }
     if (hit.disguise) revealMimic(hit);
-    const d = Math.max(1, D.power + ri(-1, 1) - hit.def); hit.hp -= d; hit.awake = true; hit.sleep = 0;
+    const d = Math.max(1, D.power + ri(-1, 1) - (hit===ally?2:hit.def)); hit.hp -= d; hit.awake = true; hit.sleep = 0;
     log(`${D.name}は${hit.name}に当たった。${d} のダメージ。`);
     addHits({ a: hit, t: hit, d, killed: hit.hp <= 0, still: true });
     if (hit.hp <= 0) kill(hit);
@@ -3604,7 +3616,7 @@ function throwItem(o) {
       hit.stun = 5; log(`しびれ草は${hit.name}に当たった。${hit.name}はしびれて動けなくなった。`);
       const hh = hit; fxStep(() => { sparks(hh, "#fff060", 14, 0.05, 0.01); popup(hh, "しびれ", "#fff060"); }, 250);
     } else if (o.kind === "power") {                           // ちからの草: 敵が強くなってしまう
-      hit.atk += 1; log(`ちからの草は${hit.name}に当たった。${hit.name}の攻撃力が上がった。`);
+      hit.atk = (hit.atk||0)+1; log(`ちからの草は${hit.name}に当たった。${hit.name}の攻撃力が上がった。`);
       const hh = hit; fxStep(() => { rise(hh, "#ff9070", 10); popup(hh, "攻+1", "#ff9070"); }, 250);
     } else if (o.kind === "rotmeat") {                         // 腐った肉: 当たった敵は動きが遅くなる
       hit.slowed = true; log(`腐った肉は${hit.name}に当たった。${hit.name}の動きが遅くなった。`);
@@ -3902,23 +3914,28 @@ function bringAlly() {
 // 仲間の行動（主人公のあと、敵の前）: となりに敵がいれば攻撃、いなければ主人公についていく
 function allyAct() {
   if (!ally || !ally.joined) return;
-  ally.maxhp = 16 + player.lv * 4;
+  ally.maxhp = 16 + (player.lv+(ally.bonusLevel||0)) * 4;
+  if(ally.stun>0){ally.stun--;if(!ally.stun)ally.frozen=false;return;}
+  if(ally.sleep>0){ally.sleep--;return;}
+  if(ally.slowed&&((ally.slowTick=(ally.slowTick||0)+1)%2===1))return;
+  if(ally.confT>0){ally.confT--;wander(ally);return;}
+  if(ally.bindT>0)ally.bindT--;
   if (turn % 4 === 0) ally.hp = Math.min(ally.maxhp, ally.hp + 1);
   const foe = monsters.find(m => !m.peaceful && !m.disguise && !m.hidden && m.shellT !== 99 && dist(m, ally) === 1 && canStep(ally.x, ally.y, m.x - ally.x, m.y - ally.y));
   ally.skillCD = Math.max(0, (ally.skillCD || 0) - 1);
-  if (!ally.skillCD && allySkill()) { ally.skillCD = ALLY_SKILL_CD; return; }
+  if (!ally.sealed && !ally.skillCD && allySkill()) { ally.skillCD = ALLY_SKILL_CD; return; }
   if (foe) {
     ally.dir = [Math.sign(foe.x - ally.x), Math.sign(foe.y - ally.y)];
     if (foe.shellT > 0) { log(`${ally.name}の攻撃は${foe.name}の壺にはじかれた。`); addHits({ a: ally, t: foe, air: true }); return; }
     if (R() < 0.9) {
-      const d = dmg(3 + player.lv * 2, foe.def); foe.hp -= d; foe.awake = true; foe.sleep = 0;
+      const d = dmg(3 + (player.lv+(ally.bonusLevel||0)) * 2+(ally.atk||0), foe.def); foe.hp -= d; foe.awake = true; foe.sleep = 0;
       log(`${ally.name}の攻撃。${foe.name}に ${d} のダメージ。`);
       addHits({ a: ally, t: foe, d, killed: foe.hp <= 0 });
       if (foe.hp <= 0) kill(foe);
     } else { log(`${ally.name}の攻撃はからぶった。`); addHits({ a: ally, t: foe, miss: true }); }
     return;
   }
-  if (dist(ally, player) > 1 || !canStep(ally.x,ally.y,player.x-ally.x,player.y-ally.y)) { const s = pathStep(ally, player); if (s) moveEnt(ally, s.x, s.y); }
+  if (!ally.bindT&&(dist(ally, player) > 1 || !canStep(ally.x,ally.y,player.x-ally.x,player.y-ally.y))) { const s = pathStep(ally, player); if (s) moveEnt(ally, s.x, s.y); }
 }
 // 仲間の特技: ラティは並んだ敵に投げナイフ、ヨルンは 2 匹以上に囲まれたらなぎはらい。使ったら 6 ターン休む
 const ALLY_SKILL_CD = 6;
@@ -3968,14 +3985,50 @@ function pathStep(from, to) {
   return null;
 }
 // 敵が仲間を攻撃する
-function attackAlly(m) {
-  m.dir = [Math.sign(ally.x - m.x), Math.sign(ally.y - m.y)];
-  if (R() < 0.85) {
-    const d = dmg(m.atk, 2), a = ally; ally.hp -= d;
-    log(`${m.name}の攻撃。${ally.name}に ${d} のダメージ。`);
-    addHits({ a: m, t: ally, d, killed: ally.hp <= 0 });
-    if (ally.hp <= 0) { log(`${ally.name}は倒れてしまった…`); ally = null; fxSeq(() => banner(`${a.name}が倒れた`, "#f08080"), 0); }
-  } else { log(`${m.name}の攻撃。${ally.name}はかわした。`); addHits({ a: m, t: ally, miss: true }); }
+function noticesAlly(m){
+  if(!ally?.joined||ally.hp<=0)return false;
+  const room=roomAt(m.x,m.y);
+  return dist(m,ally)<=1 || !!(room&&roomAt(ally.x,ally.y)===room) || lineBetween(m,ally,6);
+}
+function prefersAlly(m){
+  if(!noticesAlly(m)||sanctAt(ally.x,ally.y))return false;
+  return player.hideT>0 || sanctAt(player.x,player.y) || dist(m,ally)<dist(m,player) || (dist(m,ally)===dist(m,player)&&turn%2===0);
+}
+function bowShot(m,target){
+  flushEvents(false);const facing=[Math.sign(target.x-m.x),Math.sign(target.y-m.y)];m.dir=facing;
+  queue.push({dur:280,update(p){m.attackDir=facing;m.strikeP=.1+p*.2;m.lx=-facing[0]*.08*p;m.ly=-facing[1]*.08*p;},end(){m.lx=m.ly=0;m.strikeP=.5;}});
+  flyAnim(m.tier>=3?"ar_iron":"ar_wood",target.x,target.y,null,{x:m.x,y:m.y});
+  fxStep(()=>{m.strikeP=null;delete m.attackDir;},0);
+}
+function actAgainstAlly(m){
+  const a=ally,d=dist(m,a),range=abil(m,"farfire")?5:3;
+  if(!m.sealed&&m.ai==="tongue"&&lineBetween(m,a,abil(m,"longtongue")?3:2)){
+    flushEvents(false);const tongue={kind:"tongue",a:m,b:a,p:0};lineAnim(tongue,150,0,1);attackAlly(m,{far:true,verb:"は舌をのばした"});flushEvents(false);lineAnim(tongue,150,1,0);return;
+  }
+  if(!m.sealed&&m.ai==="archer"&&roomAt(m.x,m.y)&&roomAt(m.x,m.y)===roomAt(a.x,a.y)&&lineBetween(m,a,30)&&R()<.5){bowShot(m,a);attackAlly(m,{far:true,verb:"は矢を放った"});flushEvents(false);return;}
+  if(!m.sealed&&m.ai==="fire"&&lineBetween(m,a,range)&&R()<.45){fxSeq(()=>{sfx("fire");squash(m,200);puffCloud(m,a,"#ff9a30",22);},320);attackAlly(m,{far:true,verb:"は火を吹いた",fixed:FIRE_DMG[m.tier-1]});flushEvents(false);return;}
+  if(!m.sealed&&abil(m,"beam")&&lineBetween(m,a,5)&&R()<.4){lineAnim({kind:"beam",a:m,b:a,p:0},280,0,1);attackAlly(m,{far:true,verb:"は光線を放った"});flushEvents(false);return;}
+  if(d===1&&canStep(m.x,m.y,a.x-m.x,a.y-m.y)){
+    const n=abil(m,"triple")?3:abil(m,"double")?2:1;
+    for(let i=0;i<n&&ally===a;i++)attackAlly(m);
+    return;
+  }
+  const old={x:m.x,y:m.y};stepToward(m,a.x,a.y);
+  if(m.ai==="trapper"&&!m.sealed&&(m.x!==old.x||m.y!==old.y)&&R()<.2)placeTrapBy(m,old.x,old.y);
+}
+function attackAlly(m,{far=false,verb="の攻撃",fixed=null}={}) {
+  const a=ally;if(!a)return false;
+  m.dir = [Math.sign(a.x - m.x), Math.sign(a.y - m.y)];
+  if (fixed!=null||R() < 0.85) {
+    const d = fixed??dmg(m.atk, 2); a.hp -= d;
+    log(`${m.name}${verb}。${a.name}に ${d} のダメージ。`);
+    addHits({ a: m, t: a, d, far, still:far, killed: a.hp <= 0 });
+    if(a.hp<=0)kill(a,m);
+    else if(!m.sealed&&!far&&m.ai==="bind"&&R()<.3){a.bindT=m.tier>=3?3:2;log(`ツタが${a.name}に巻きついた！`);}
+    else if(!m.sealed&&!far&&m.ai==="mud"&&R()<.25){a.slowed=true;log(`泥で${a.name}の動きが遅くなった。`);}
+    return true;
+  }
+  log(`${m.name}${verb}。${a.name}はかわした。`);addHits({a:m,t:a,miss:true,far,still:far});return false;
 }
 // ---- 音楽: 場所ごとの短い曲を WebAudio で合成してくり返す（音のファイルは使わない。N キーで効果音と一緒に消せる） ----
 // 譜面の書き方: 1 文字が 8 分音符 1 つ。drum は k がバスドラム、x がハイハット。数字と a〜e は音階の何番目の音か（0 が主音、5 で 1 オクターブ上）、"-" は前の音をのばす、"." は休み
