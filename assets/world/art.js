@@ -21,7 +21,9 @@ function enemyMotionRow(entity,now) {
   let row = 0;
   if (entity.deathT != null || (entity.hp <= 0 && !entity.pendingDeath)) row = 7;
   else if (entity.hurt && now - entity.hurt < 240) row = 5;
-  else if (entity.strikeP != null) row = entity.strikeP < 0.35 ? 3 : entity.strikeP < 0.75 ? 4 : 0;
+  else if (entity.sleep>0) row = 0;
+  else if (entity.specialActionT>now) row = entity.specialPoseRow??6;
+  else if (entity.strikeP != null) row = entity.strikeP < 0.3 ? 3 : entity.strikeP < 0.72 ? 4 : entity.strikeP<.92?3:0;
   else if (entity.walkP != null) row = ((entity.steps || 0) % 2) ? 1 : 2;
   else if (entity.specialT > now || entity.shellT > 0) row = 6;
   return row;
@@ -44,9 +46,9 @@ function enemyMotionFrame(entity, kind, now, loadedSource=null) {
     const frame = enemyMotionFrames.get(key); enemyMotionFrames.delete(key); enemyMotionFrames.set(key, frame); return frame;
   }
   const metadata=WORLD_MOTION_META[kind],frameIndex=row*8+column,rectangle=metadata.frames[frameIndex];
-  const [left, top, width, height, anchorX, anchorY] = rectangle, scale = 106 / metadata.size;
+  const [left, top, width, height, anchorX, anchorY] = rectangle, scale = Math.min(106 / metadata.size,148/width,148/height);
   const canvas = document.createElement("canvas"); canvas.width = canvas.height = 160;
-  const context = canvas.getContext("2d"), horizontal = 80 + (left - anchorX) * scale, vertical = 140 + (top - anchorY) * scale;
+  const context = canvas.getContext("2d"), horizontal = Math.max(6,Math.min(154-width*scale,80 + (left - anchorX) * scale)), vertical = Math.max(6,Math.min(154-height*scale,140 + (top - anchorY) * scale));
   context.imageSmoothingEnabled = false;
   context.drawImage(source.image, left, top, width, height, horizontal, vertical, width * scale, height * scale);
   if(kind==='hoshi'&&tier===1){
@@ -108,24 +110,24 @@ function loadWorldArt() {
     draw.st = null;
     if (state === "inv") renderInv(); else if (state === "menu") renderMenu();
   };
-  icons.src = "./assets/world/items.png";
+  icons.src = "./assets/world/items/items.png";
   const stone=new Image();stone.onload=()=>{
     worldArt.icons.set("item_ar_stone",artCell(stone,[518,284,488,463]));draw.st=null;
     if(state==="inv")renderInv();else if(state==="menu")renderMenu();
-  };stone.src="./assets/world/stone.png";
+  };stone.src="./assets/world/items/stone.png";
   const bracelet = new Image(); bracelet.onload = () => {
     worldArt.icons.set("item_ring", artCell(bracelet, [304,303,702,618]));
     draw.st = null; if (state === "inv") renderInv();
-  }; bracelet.src = "./assets/world/bracelet.png?v=pixel2";
-  const terrain = new Image(); terrain.onload = () => { worldArt.terrain = terrain; }; terrain.src = "./assets/world/terrain.png";
-  const surfaces=new Image();surfaces.onload=()=>{worldArt.surfaces=surfaces;};surfaces.src="./assets/world/surfaces.png";
+  }; bracelet.src = "./assets/world/items/bracelet.png?v=pixel2";
+  const terrain = new Image(); terrain.onload = () => { worldArt.terrain = terrain; }; terrain.src = "./assets/world/terrain/terrain.png";
+  const surfaces=new Image();surfaces.onload=()=>{worldArt.surfaces=surfaces;};surfaces.src="./assets/world/terrain/surfaces.png";
   const mechanisms = new Image(); mechanisms.onload = () => {
     ["spike","gas","warp","hunger","rot","rust","stairs","crumble"].forEach((key,index) => {
       const width=mechanisms.width/4,height=mechanisms.height/2;
       worldArt.mechanisms.set(key,artCell(mechanisms,[index%4*width,Math.floor(index/4)*height,width,height]));
     });
-  }; mechanisms.src="./assets/world/mechanisms.png";
-  const pitfall=new Image();pitfall.onload=()=>{worldArt.mechanisms.set("pit",artCell(pitfall,[95,255,1062,771]));};pitfall.src="./assets/world/pitfall.png";
+  }; mechanisms.src="./assets/world/traps/mechanisms.png";
+  const pitfall=new Image();pitfall.onload=()=>{worldArt.mechanisms.set("pit",artCell(pitfall,[95,255,1062,771]));};pitfall.src="./assets/world/traps/pitfall.png";
 }
 function drawMechanism(key, x, y, context=ctx) {
   const image=worldArt.mechanisms.get(key); if(!image)return false;
