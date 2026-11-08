@@ -48,10 +48,10 @@ function enemyMotionFrame(entity, kind, now, loadedSource=null) {
   const metadata=WORLD_MOTION_META[kind],frameIndex=row*8+column,rectangle=metadata.frames[frameIndex];
   const [left, top, width, height, anchorX, anchorY] = rectangle;
   // カガミガは鏡の翅が横に張り出すため、他の敵と同じ余白だと表示枠の端に触れて欠けて見える。
-  const frameLimit = kind === "kagami" ? 128 : 148, spriteLimit = kind === "kagami" ? 90 : 106;
+  const frameLimit = kind === "kagami" ? 148 : 148, spriteLimit = kind === "kagami" ? 110 : 106;
   const scale = Math.min(spriteLimit / metadata.size,frameLimit/width,frameLimit/height);
   const canvas = document.createElement("canvas"); canvas.width = canvas.height = 160;
-  const context = canvas.getContext("2d"), horizontal = Math.max(6,Math.min(154-width*scale,80 + (left - anchorX) * scale)), vertical = Math.max(6,Math.min(154-height*scale,140 + (top - anchorY) * scale));
+  const context = canvas.getContext("2d"), horizontal = kind==="kagami"?(160-width*scale)/2:Math.max(6,Math.min(154-width*scale,80 + (left - anchorX) * scale)), vertical = kind==="kagami"?150-height*scale:Math.max(6,Math.min(154-height*scale,140 + (top - anchorY) * scale));
   context.imageSmoothingEnabled = false;
   context.drawImage(source.image, left, top, width, height, horizontal, vertical, width * scale, height * scale);
   if(kind==='hoshi'&&tier===1){

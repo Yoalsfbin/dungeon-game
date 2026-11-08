@@ -54,6 +54,7 @@ function contentLandscapePiece(theme,variant){
 }
 function drawContentLandscape(sx,sy){
  const theme=Object.keys(THEMES).find(k=>THEMES[k]===THEME);if(!THEME.outdoor)return;
+ const scene=contentFieldScene?.(theme);if(scene?.ready){if(stairs&&seen[stairs.y]?.[stairs.x])drawContentFieldExit(ctx,sx(stairs.x)+TS/2,sy(stairs.y));return;}
  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
   if(!isWallTile(tileAt(x,y))||(!seen[y]?.[x]&&!visible(x,y)&&!lightAll))continue;
   const X=sx(x),Y=sy(y);if(X< -TS*2||Y< -TS*3||X>cv.width+TS||Y>cv.height+TS)continue;

@@ -1,4 +1,4 @@
-function contentWarpActor(actor){const from={x:actor.x,y:actor.y},point=warpDestination(from);if(!point)return false;flushEvents(false);actor.x=point.x;actor.y=point.y;fxSeq(()=>{sfx('warp');ring(from,'#80d8fa',1.3,400);},120);queue.push({dur:200,update(p){actor.warpScale=1-p;},end(){actor.rx=point.x;actor.ry=point.y;}});queue.push({dur:240,update(p){actor.warpScale=p;},end(){delete actor.warpScale;sfx('arrive');ring(point,'#80d8fa',1.3,400);}});log(`${actor.name}は水に落ち、別の場所へワープした！`);if(actor===player)updateSeen();return true;}
+function contentWarpActor(actor){if(actor===player&&contentHas(player.shield,'s_stand')){log('踏んばりの盾がワープを防いだ。');return true;}const from={x:actor.x,y:actor.y},point=warpDestination(from);if(!point)return false;flushEvents(false);actor.x=point.x;actor.y=point.y;fxSeq(()=>{sfx('warp');ring(from,'#80d8fa',1.3,400);},120);queue.push({dur:200,update(p){actor.warpScale=1-p;},end(){actor.rx=point.x;actor.ry=point.y;}});queue.push({dur:240,update(p){actor.warpScale=p;},end(){delete actor.warpScale;sfx('arrive');ring(point,'#80d8fa',1.3,400);}});log(`${actor.name}は水に落ち、別の場所へワープした！`);if(actor===player)updateSeen();return true;}
 function contentIceCrash(source,target){
  const dx=Math.sign(target.x-source.x),dy=Math.sign(target.y-source.y),from={x:target.x,y:target.y,name:target.name,dir:[dx,dy]};
  if(target===player&&contentHas(player.shield,'s_stand')){log('踏んばりの盾で吹き飛ばしを防いだ。');return;}
@@ -14,7 +14,7 @@ function contentAbsorbItem(monster,item){
  if(monster.tier>=2){known.add(item.kind);log(`壺の中で${ITEMS[item.kind].name}の正体が分かった。`);}
  log(`${monster.name}の壺に道具が入り、攻撃力が上がった！`);fxSeq(()=>{sfx('pot');monster.specialActionT=NOW()+400;ring(monster,'#e6c691',.8,350);},160);return true;
 }
-function contentHealFeedback(actor,amount){if(!(amount>0))return;fxStep(()=>{if(!actor||actor.hp<=0)return;sfx(amount>=3?'heal':'quietheal');ring(actor,'#92f0ab',amount>=3?1.15:.65,300);rise(actor,'#92f0ab',amount>=3?12:4);popup(actor,'+'+amount,'#9ff4b7');},amount>=3?180:0);}
+function contentHealFeedback(actor,amount){if(!(amount>1))return;fxStep(()=>{if(!actor||actor.hp<=0)return;sfx(amount>=3?'heal':'quietheal');ring(actor,'#92f0ab',amount>=3?1.15:.65,300);rise(actor,'#92f0ab',amount>=3?12:4);popup(actor,'+'+amount,'#9ff4b7');},amount>=3?180:0);}
 function installContentCombat(){
  const oldThrow=throwItem;throwItem=function(item,from=player,direction=from.dir||player.dir){const result=lineTarget(10,from,direction);if(result.hit?.kind==='tsubo'&&result.hit.shellT>0&&!result.hit.sealed&&ITEMS[item.kind].cat!=='壺'){flyAnim(item.kind,result.x,result.y,null,from);contentAbsorbItem(result.hit,item);return;}return oldThrow(item,from,direction);};
  const oldKill=kill;kill=function(monster,by){if(monster===player){contentRescue();return;}if(monster.swallowedPot?.contents?.length){for(const item of monster.swallowedPot.contents)dropItemNear(item,monster.x,monster.y);monster.swallowedPot.contents=[];}return oldKill(monster,by);};

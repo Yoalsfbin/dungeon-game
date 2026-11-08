@@ -238,7 +238,7 @@ if (window.DungeonMotions) {
 } else heroAssetError = true;
 function drawHero(context, entity, now, footX, footY, size) {
   const character = entity.sprite === "viking" ? "jorn" : "rati";
-  let action = "idle", frame = 0, idleStep=false;
+  let action = "idle", frame = 0;
   const pose = entity.pose && now - entity.pose.t0 < entity.pose.ms ? entity.pose : null;
   const itemPose = entity.itemPose && now - entity.itemPose.t0 < entity.itemPose.ms ? entity.itemPose : null;
   const motion = entity.motion && now >= entity.motion.t0 && now - entity.motion.t0 < entity.motion.ms ? entity.motion : null;
@@ -249,7 +249,7 @@ function drawHero(context, entity, now, footX, footY, size) {
     frame = Math.min(3, Math.floor((now - active.t0) / active.ms * 4));
   } else if (entity.atkP != null) { action = "attack"; frame = Math.min(3, Math.floor(entity.atkP * 4)); }
   else if (entity.walkP != null) { action = "walk"; frame = ((entity.steps || 0) % 2) * 2 + Math.min(1, Math.floor(entity.walkP * 2)); }
-  else if((entity===player||entity===ally)&&state!=="title"&&entity.hp>0&&!entity.sleep&&!entity.stun){action="walk";frame=1;idleStep=true;}
+  else if((entity===player||entity===ally)&&state!=="title"&&entity.hp>0&&!entity.sleep&&!entity.stun){action="walk";frame=(Math.floor(now/340)%2)?2:0;}
   const requested = action === "idle" ? "walk" : action;
   const image = heroImages.get(character + "-" + requested);
   if (!image) return false;
@@ -258,15 +258,7 @@ function drawHero(context, entity, now, footX, footY, size) {
   const attackProgress=entity.atkP??(motion?.kind==='attack'?(now-motion.t0)/motion.ms:null);
   if(attackProgress!=null){const reach=Math.sin(Math.max(0,Math.min(1,attackProgress))*Math.PI)*size*.2;footX+=horizontal*reach;footY+=vertical*reach*.65;}
   drawContentEquipment(context,entity,now,character,action,direction,frame,footX,footY,size,'back');
-  if(idleStep){
-    DungeonMotions.draw(context,image,character,action,direction,1,footX,footY,size);
-    const stepFrame=Math.floor(now/220)%4;
-    context.save();context.beginPath();
-    context.rect(footX-size*.44,footY-size*.59,size*.25,size*.38);
-    context.rect(footX+size*.19,footY-size*.59,size*.25,size*.38);
-    context.rect(footX-size*.25,footY-size*.27,size*.5,size*.27);context.clip();
-    DungeonMotions.draw(context,image,character,action,direction,stepFrame,footX,footY,size);context.restore();
-  }else DungeonMotions.draw(context, image, character, action, direction, frame, footX, footY, size);
+  DungeonMotions.draw(context, image, character, action, direction, frame, footX, footY, size);
   drawContentEquipment(context,entity,now,character,action,direction,frame,footX,footY,size,'front');
   return true;
 }
@@ -1155,6 +1147,11 @@ function triggerTrap(t) {
   }
   if (t.kind === "hunger") { player.food = Math.max(0, player.food - 10); fxStep(() => { sparks(at, "#e0a040", 12, 0.04, 0.01); popup(player, "満腹-10", "#e0a040"); }, 250); }
   if (t.kind === "warp") {
+    if(player.shield?.kind==="s_stand"){
+      log("踏んばりの盾がワープを防いだ。");
+      fxStep(()=>{sfx("quiet");ring(at,"#e8cf78",.8,260);},100);
+      return;
+    }
     const p = warpDestination(at);
     if(p){
       player.x=p.x;player.y=p.y;
@@ -1646,7 +1643,7 @@ function newFloor() {
   Object.assign(player, { x: p.x, y: p.y, rx: p.x, ry: p.y, lx: 0, ly: 0, hop: 0, sleep: 0 });
   bringAlly();
   showFloorCard();
-  if (goal) { placeGuardian(goal); if(LAST_FLOOR>=30)goal=null; }
+  if (goal) { if(LAST_FLOOR!==99)placeGuardian(goal); if(LAST_FLOOR===30)goal=null; }
   queue = []; cur = null; moves = []; hits = []; corpses = []; popups = []; slashes = []; particles = []; rings = []; bolts = []; lineFxs = []; puffs = [];
   for (let i = 0; i < Math.min(15,9 + Math.floor(floor / 3)); i++) { const q = freeSpot(); if (q) items.push({ ...randomItem(), ...q }); }
   const tk = trapKindPool();
@@ -2719,8 +2716,8 @@ function draw(now = performance.now()) {
       if (!THEME.outdoor&&W_(x, y - 1)) shade(X, Y, TS, 26, 0, Y, 0, Y + 26, 0.7);
       if (!THEME.outdoor&&W_(x - 1, y)) shade(X, Y, 18, TS, X, 0, X + 18, 0, 0.45);
       if (!THEME.outdoor&&W_(x + 1, y)) shade(X + TS - 12, Y, 12, TS, X + TS, 0, X + TS - 12, 0, 0.3);
-      drawTerrain(map[y][x], x, y, X, Y, now);
-      const dec = map[y][x] === TILE.FLOOR ? floorDecor(x, y) : null;
+      if(!THEME.outdoor)drawTerrain(map[y][x], x, y, X, Y, now);
+      const dec = !THEME.outdoor&&map[y][x] === TILE.FLOOR ? floorDecor(x, y) : null;
       if (dec && !(stairs.x === x && stairs.y === y)) drawDecor(dec, X, Y);
     } else {
       const faceUp = !W_(x, y + 1);
