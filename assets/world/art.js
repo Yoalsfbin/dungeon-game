@@ -46,12 +46,15 @@ function enemyMotionFrame(entity, kind, now, loadedSource=null) {
     const frame = enemyMotionFrames.get(key); enemyMotionFrames.delete(key); enemyMotionFrames.set(key, frame); return frame;
   }
   const metadata=WORLD_MOTION_META[kind],frameIndex=row*8+column,rectangle=metadata.frames[frameIndex];
-  const [left, top, width, height, anchorX, anchorY] = rectangle;
-  // カガミガは鏡の翅が横に張り出すため、他の敵と同じ余白だと表示枠の端に触れて欠けて見える。
-  const frameLimit = kind === "kagami" ? 148 : 148, spriteLimit = kind === "kagami" ? 110 : 106;
+  let [left, top, width, height, anchorX, anchorY] = rectangle;
+  // 鏡の斜め前・横向きは隣のコマの残像を輪郭検出が拾っていたため、
+  // 元シート上の各個体を目視確認した範囲で独立して切り出す。
+  if(kind==="kagami"&&column===1){left=205;width=130;anchorX=270;}
+  if(kind==="kagami"&&column===2){left=355;width=140;anchorX=430;}
+  const frameLimit = 148, spriteLimit = kind === "kagami" ? 112 : 106;
   const scale = Math.min(spriteLimit / metadata.size,frameLimit/width,frameLimit/height);
   const canvas = document.createElement("canvas"); canvas.width = canvas.height = 160;
-  const context = canvas.getContext("2d"), horizontal = kind==="kagami"?(160-width*scale)/2:Math.max(6,Math.min(154-width*scale,80 + (left - anchorX) * scale)), vertical = kind==="kagami"?150-height*scale:Math.max(6,Math.min(154-height*scale,140 + (top - anchorY) * scale));
+  const context = canvas.getContext("2d"), horizontal = Math.max(6,Math.min(154-width*scale,80 + (left - anchorX) * scale)), vertical = Math.max(6,Math.min(154-height*scale,140 + (top - anchorY) * scale));
   context.imageSmoothingEnabled = false;
   context.drawImage(source.image, left, top, width, height, horizontal, vertical, width * scale, height * scale);
   if(kind==='hoshi'&&tier===1){
@@ -98,6 +101,7 @@ function artCell(image, rectangle) {
   return canvas;
 }
 function loadWorldArt() {
+  if(typeof contentFieldScene==='function')for(const theme of ['forest','snowfield','marsh','ashfield'])contentFieldScene(theme);
   const pending=document.createElement("canvas");pending.width=pending.height=128;
   const pendingContext=pending.getContext("2d");pendingContext.strokeStyle="#9aa4ae";pendingContext.lineWidth=4;pendingContext.beginPath();pendingContext.arc(64,82,16,0,Math.PI*1.5);pendingContext.stroke();
   for(const kind of Object.keys(MON))for(const tier of [1,2,3])worldArt.monsters.set(kind+":"+tier,pending);
@@ -113,10 +117,7 @@ function loadWorldArt() {
   }; bracelet.src = "./assets/world/items/bracelet.png?v=pixel2";
   const terrain = new Image(); terrain.onload = () => { worldArt.terrain = terrain; }; terrain.src = "./assets/world/terrain/terrain.png";
   const surfaces=new Image();surfaces.onload=()=>{worldArt.surfaces=surfaces;};surfaces.src="./assets/world/terrain/surfaces.png";
-  for(const key of ["spike","gas","warp","hunger","rot","rust","stairs","crumble"]){
-    const mechanism=new Image();mechanism.onload=()=>worldArt.mechanisms.set(key,artCell(mechanism,[0,0,mechanism.width,mechanism.height]));mechanism.src="./assets/world/traps/"+key+".png";
-  }
-  const pitfall=new Image();pitfall.onload=()=>{worldArt.mechanisms.set("pit",artCell(pitfall,[95,255,1062,771]));};pitfall.src="./assets/world/traps/pitfall.png";
+  for(const key of ["spike","gas","warp","hunger","rot","rust","pit"]){const icon=new Image();icon.onload=()=>{worldArt.mechanisms.set(key,icon);draw.st=null;};icon.src="./assets/world/traps/"+key+".png";}
 }
 function drawMechanism(key, x, y, context=ctx) {
   const image=worldArt.mechanisms.get(key); if(!image)return false;

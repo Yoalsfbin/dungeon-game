@@ -2637,9 +2637,16 @@ const TRAP_ICON = {
       px(9 - w, 2 + v, "#b05a20", w * 2, 1); px(9 - w, 2 + v, "#e88a40", Math.max(1, w - 1), 1); }
     px(7, 8, "#ffd0a0", 1, 2); px(3, 14, "#8a4a1a", 2, 1); px(13, 13, "#8a4a1a", 2, 1); px(12, 15, "#b05a20", 1, 1);
   },
+  pit(px) {                            // 石縁の落とし穴
+    for(let v=2;v<16;v++){const half=Math.round(7*Math.sqrt(Math.max(0,1-((v-9)/7)**2)));if(half>0){px(9-half, v, "#50483e", half*2, 1);px(9-half+1,v,"#282321",Math.max(1,half*2-2),1);}}
+    px(4,5,"#b9aa8c",3,1);px(12,12,"#171516",2,1);px(6,14,"#171516",4,1);
+  },
+  crumble(px) {                         // ひび割れた床石
+    px(2,3,"#c1ad8d",5,1);px(7,3,"#352c24",1,3);px(7,6,"#c1ad8d",3,1);px(10,6,"#352c24",1,4);px(10,10,"#c1ad8d",4,1);px(14,10,"#352c24",1,4);
+    px(4,10,"#81715d",2,1);px(4,11,"#352c24",1,3);px(12,14,"#81715d",3,1);px(14,13,"#352c24",1,2);
+  },
 };
 function drawTrap(t, x, y, g = ctx) {          // g: 説明書の絵を書き出す時は別のキャンバス
-  if(drawMechanism(t.kind,x,y,g))return;
   const X0 = x + 14, Y0 = y + 14, px = (u, v, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(X0 + u * SC, Y0 + v * SC, w * SC, h * SC); };
   px(0, 0, "#1e1814", 18, 18); px(1, 1, "#6a5a4c", 16, 16);
   px(1, 1, "#8e7e6c", 16, 1); px(1, 1, "#8e7e6c", 1, 16); px(1, 16, "#463a30", 16, 1); px(16, 1, "#463a30", 1, 16);   // ふちの光と影

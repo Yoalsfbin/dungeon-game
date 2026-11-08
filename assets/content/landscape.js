@@ -54,11 +54,10 @@ function contentLandscapePiece(theme,variant){
 }
 function drawContentLandscape(sx,sy){
  const theme=Object.keys(THEMES).find(k=>THEMES[k]===THEME);if(!THEME.outdoor)return;
- const scene=contentFieldScene?.(theme);if(scene?.ready){if(stairs&&seen[stairs.y]?.[stairs.x])drawContentFieldExit(ctx,sx(stairs.x)+TS/2,sy(stairs.y));return;}
+ if(contentFieldUsingArtwork){if(stairs&&seen[stairs.y]?.[stairs.x])drawContentFieldExit(ctx,sx(stairs.x)+TS/2,sy(stairs.y));return;}
  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
   if(!isWallTile(tileAt(x,y))||(!seen[y]?.[x]&&!visible(x,y)&&!lightAll))continue;
   const X=sx(x),Y=sy(y);if(X< -TS*2||Y< -TS*3||X>cv.width+TS||Y>cv.height+TS)continue;
-  drawContentFieldBoundary(ctx,x,y,X,Y,theme);
   const hash=contentLandscapeHash(x,y),variant=Math.floor(hash*24),image=contentLandscapePiece(theme,variant);if(!image)continue;
   const offset=(contentLandscapeHash(x,y,2)-.5)*TS*.16,scale=.91+contentLandscapeHash(x,y,3)*.18;
   ctx.save();ctx.globalAlpha=THEME?.outdoor||visible(x,y)?1:.4;ctx.drawImage(image,X+TS/2-TS*.67*scale+offset,Y+TS-TS*1.6*scale,TS*1.34*scale,TS*1.675*scale);ctx.restore();
