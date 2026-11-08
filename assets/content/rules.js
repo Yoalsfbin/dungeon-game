@@ -37,6 +37,6 @@ function contentLearnedSkill(skill){
  if(skill.id==='viking-learned-2'){for(let n=1;n<=2;n++){if(!canStep(player.x+dx*(n-1),player.y+dy*(n-1),dx,dy))break;hit(monsters.find(m=>m.x===player.x+dx*n&&m.y===player.y+dy*n&&!m.peaceful),2,.5);}}
  if(skill.id==='ranger-learned-0'){for(let n=0;n<2;n++){if(!canStep(player.x,player.y,dx,dy)||occupied(player.x+dx,player.y+dy))break;const result=playerMove(dx,dy,true);if(result==='fell')break;}}
  if(skill.id==='ranger-learned-1'){hit(front(),1.2);if(canStep(player.x,player.y,-dx,-dy)&&!occupied(player.x-dx,player.y-dy))playerMove(-dx,-dy,true);}
- if(skill.id==='ranger-learned-2'){const monster=front();hit(monster,.9);if(monster&&monsters.includes(monster))hit(monster,.9);}
+ if(skill.id==='ranger-learned-2'){const monster=front();for(let n=0;n<4&&monster&&monsters.includes(monster);n++)hit(monster,.45);}
  flushEvents(false);fxSeq(()=>{ring(player,'#ffe7a5',1.4,350);},180);
 }

@@ -16,8 +16,8 @@ function contentMonsterAct(m){
  }
  if(m.ai==='healer'&&!m.contentCooldown){const hurt=monsters.filter(other=>other!==m&&!other.peaceful&&other.hp>0&&other.hp<other.maxhp&&dist(m,other)<=m.tier).sort((a,b)=>a.hp/a.maxhp-b.hp/b.maxhp)[0];if(hurt){const amount=[6,12,20][m.tier-1];hurt.hp=Math.min(hurt.maxhp,hurt.hp+amount);m.contentCooldown=3;contentSpecialPose(m,'癒し','#a9e3a2');log(`${hurt.name}のHPが${amount}回復した。`);fxSeq(()=>{rise(hurt,'#a9e3a2',12);ring(hurt,'#a9e3a2',.8,300);},150);return true;}}
  if(m.kind==='dragon'){
-  const valid=m.tier===3||(roomAt(m.x,m.y)&&roomAt(m.x,m.y)===roomAt(target.x,target.y)&&contentLine(m,target,MW+MH));
-  if(m.fireReady){delete m.fireReady;m.contentCooldown=5;if(valid){face();contentSpecialPose(m,m.tier===3?'追尾する業火':'炎の息','#ffa859');contentDragonFire(m,target);contentDamage(m,target,[12,22,36][m.tier-1],'fire');}return true;}
+  const sameRoom=roomAt(m.x,m.y)&&roomAt(m.x,m.y)===roomAt(target.x,target.y),valid=sameRoom&&(m.tier===3||contentLine(m,target,MW+MH));
+  if(m.fireReady){delete m.fireReady;m.contentCooldown=5;if(valid){face();contentSpecialPose(m,m.tier===3?'追尾する業火':'炎の息','#ffa859');contentDragonFire(m,target);contentDamage(m,target,[20,30,40][m.tier-1],'fire');}return true;}
   if(!m.contentCooldown&&valid){face();m.fireReady=true;contentSpecialPose(m,'炎をためる','#ffb261');log(`${m.name}の喉に炎が集まっている…`);return true;}
  }
  if(m.ai==='bomb'&&!m.contentCooldown&&distance>=2&&contentLine(m,target,4)&&!contentBombs.some(b=>b.x===target.x&&b.y===target.y)){

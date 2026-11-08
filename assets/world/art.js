@@ -14,14 +14,14 @@ function ensureEnemyMotion(kind) {
     for(const tier of [1,2,3])worldArt.monsters.set(kind+":"+tier,enemyMotionFrame({tier,dir:[0,1],hp:1},kind,NOW(),source));
     if(typeof state!=="undefined"&&state==="menu")renderMenu();
   };
-  image.src = "./assets/world/motions/" + kind + ".png";
+  image.src = "./assets/world/monsters/" + kind + "/motion-sheet.png";
   return source;
 }
 function enemyMotionRow(entity,now) {
   let row = 0;
-  if (entity.deathT != null || (entity.hp <= 0 && !entity.pendingDeath)) row = 7;
+  if (entity.deathT != null || (entity.hp <= 0 && !entity.pendingDeath)) row = 5;
   else if (entity.hurt && now - entity.hurt < 240) row = 5;
-  else if (entity.sleep>0) row = 0;
+  else if (entity.sleep>0) row = 7;
   else if (entity.specialActionT>now) row = entity.specialPoseRow??6;
   else if (entity.strikeP != null) row = entity.strikeP < 0.3 ? 3 : entity.strikeP < 0.72 ? 4 : entity.strikeP<.92?3:0;
   else if (entity.walkP != null) row = ((entity.steps || 0) % 2) ? 1 : 2;
@@ -46,7 +46,10 @@ function enemyMotionFrame(entity, kind, now, loadedSource=null) {
     const frame = enemyMotionFrames.get(key); enemyMotionFrames.delete(key); enemyMotionFrames.set(key, frame); return frame;
   }
   const metadata=WORLD_MOTION_META[kind],frameIndex=row*8+column,rectangle=metadata.frames[frameIndex];
-  const [left, top, width, height, anchorX, anchorY] = rectangle, scale = Math.min(106 / metadata.size,148/width,148/height);
+  const [left, top, width, height, anchorX, anchorY] = rectangle;
+  // カガミガは鏡の翅が横に張り出すため、他の敵と同じ余白だと表示枠の端に触れて欠けて見える。
+  const frameLimit = kind === "kagami" ? 128 : 148, spriteLimit = kind === "kagami" ? 90 : 106;
+  const scale = Math.min(spriteLimit / metadata.size,frameLimit/width,frameLimit/height);
   const canvas = document.createElement("canvas"); canvas.width = canvas.height = 160;
   const context = canvas.getContext("2d"), horizontal = Math.max(6,Math.min(154-width*scale,80 + (left - anchorX) * scale)), vertical = Math.max(6,Math.min(154-height*scale,140 + (top - anchorY) * scale));
   context.imageSmoothingEnabled = false;
@@ -70,7 +73,6 @@ function enemyMotionFrame(entity, kind, now, loadedSource=null) {
   if (enemyMotionFrames.size > 192) enemyMotionFrames.delete(enemyMotionFrames.keys().next().value);
   return canvas;
 }
-const WORLD_RECTS = {"items":[[87,91,259,240],[439,91,276,238],[821,72,261,267],[1187,81,263,258],[101,414,228,220],[443,389,267,270],[808,386,274,273],[1193,377,273,282],[83,715,262,242],[462,726,250,224],[819,733,260,224],[1190,711,259,245]]};
 const WORLD_ICON_KEYS = ["herb", "rice", "club", "buckler", "ring", "arrow", "book", "staff", "pot", "coin", "heart", "star"].map(key => "item_" + key);
 const WORLD_THEMES = ["cave", "snow", "jungle", "ruins", "ice", "lake", "volcano", "altar"];
 const MONSTER_ACCENTS = {
@@ -100,17 +102,7 @@ function loadWorldArt() {
   const pendingContext=pending.getContext("2d");pendingContext.strokeStyle="#9aa4ae";pendingContext.lineWidth=4;pendingContext.beginPath();pendingContext.arc(64,82,16,0,Math.PI*1.5);pendingContext.stroke();
   for(const kind of Object.keys(MON))for(const tier of [1,2,3])worldArt.monsters.set(kind+":"+tier,pending);
   ensureEnemyMotion("tsubo");
-  const icons = new Image();
-  icons.onload = () => {
-    worldArt.items = icons;
-    WORLD_ICON_KEYS.forEach((key, index) => { if (key !== "item_ring" || !worldArt.icons.has(key)) worldArt.icons.set(key, artCell(icons, WORLD_RECTS.items[index])); });
-    const coin=worldArt.icons.get("item_coin"),coinContext=coin.getContext("2d");
-    coinContext.globalCompositeOperation="color";coinContext.fillStyle="#e7ad35";coinContext.fillRect(0,0,128,128);
-    coinContext.globalCompositeOperation="destination-in";const mask=artCell(icons,WORLD_RECTS.items[9]);coinContext.drawImage(mask,0,0);coinContext.globalCompositeOperation="source-over";
-    draw.st = null;
-    if (state === "inv") renderInv(); else if (state === "menu") renderMenu();
-  };
-  icons.src = "./assets/world/items/items.png";
+  WORLD_ICON_KEYS.forEach(key=>{const icon=new Image();icon.onload=()=>{const frame=artCell(icon,[0,0,icon.width,icon.height]);worldArt.icons.set(key,frame);if(key==="item_coin"){const mask=document.createElement("canvas");mask.width=mask.height=128;mask.getContext("2d").drawImage(frame,0,0);const c=frame.getContext("2d");c.globalCompositeOperation="color";c.fillStyle="#e7ad35";c.fillRect(0,0,128,128);c.globalCompositeOperation="destination-in";c.drawImage(mask,0,0);c.globalCompositeOperation="source-over";}draw.st=null;if(state==="inv")renderInv();else if(state==="menu")renderMenu();};icon.src="./assets/world/items/icons/"+key.slice(5)+".png";});
   const stone=new Image();stone.onload=()=>{
     worldArt.icons.set("item_ar_stone",artCell(stone,[518,284,488,463]));draw.st=null;
     if(state==="inv")renderInv();else if(state==="menu")renderMenu();
@@ -121,12 +113,9 @@ function loadWorldArt() {
   }; bracelet.src = "./assets/world/items/bracelet.png?v=pixel2";
   const terrain = new Image(); terrain.onload = () => { worldArt.terrain = terrain; }; terrain.src = "./assets/world/terrain/terrain.png";
   const surfaces=new Image();surfaces.onload=()=>{worldArt.surfaces=surfaces;};surfaces.src="./assets/world/terrain/surfaces.png";
-  const mechanisms = new Image(); mechanisms.onload = () => {
-    ["spike","gas","warp","hunger","rot","rust","stairs","crumble"].forEach((key,index) => {
-      const width=mechanisms.width/4,height=mechanisms.height/2;
-      worldArt.mechanisms.set(key,artCell(mechanisms,[index%4*width,Math.floor(index/4)*height,width,height]));
-    });
-  }; mechanisms.src="./assets/world/traps/mechanisms.png";
+  for(const key of ["spike","gas","warp","hunger","rot","rust","stairs","crumble"]){
+    const mechanism=new Image();mechanism.onload=()=>worldArt.mechanisms.set(key,artCell(mechanism,[0,0,mechanism.width,mechanism.height]));mechanism.src="./assets/world/traps/"+key+".png";
+  }
   const pitfall=new Image();pitfall.onload=()=>{worldArt.mechanisms.set("pit",artCell(pitfall,[95,255,1062,771]));};pitfall.src="./assets/world/traps/pitfall.png";
 }
 function drawMechanism(key, x, y, context=ctx) {

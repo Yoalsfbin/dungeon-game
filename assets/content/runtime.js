@@ -82,6 +82,7 @@ function contentAttackDamage(monster,damage){
 }
 function initializeContent(){
  Object.assign(MON,GAME_CONTENT.monsters);Object.assign(TIERS,GAME_CONTENT.tiers);Object.assign(THEMES,GAME_CONTENT.themes);Object.assign(ITEMS,GAME_CONTENT.items);CAT_ICON['木札']='woodtag';PRICE_BY_CAT['木札']=250;
+ ITEMS.ar_stone.cat='石';CAT_ICON['石']='stone';if(!CAT_ORDER.includes('石'))CAT_ORDER.splice(CAT_ORDER.indexOf('草'),0,'石');
  if(!CAT_ORDER.includes('木札'))CAT_ORDER.push('木札');
  Object.assign(SFX,{pot:{...SFX.drop,f0:450,f1:230,dur:.12},quietheal:{...SFX.heal,vol:.008,dur:.08},punch:{...SFX.hit,f0:150,f1:75,vol:.03}});
  for(const[key,base]of Object.entries({forest:'jungle',snowfield:'snow',marsh:'lake',ashfield:'volcano',mycelium:'jungle',crystal:'ice',obsidian:'volcano',sealed:'altar',sandstone:'ruins',coral:'lake',clockwork:'ruins',bone:'cave'}))TRACKS[key]={...TRACKS[base]};
