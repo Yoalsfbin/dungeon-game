@@ -1,11 +1,12 @@
 const contentSources=new Map(),contentFrames=new Map();
 let contentObjects=[],contentBombs=[],contentCutIn=null;
 let contentFlames=[];
+function contentProductionTheme(theme){return ({forest:'jungle',snowfield:'snow',marsh:'lake',ashfield:'volcano'})[theme]||theme;}
 function contentSource(file){let entry=contentSources.get(file);if(!entry){const image=new Image();entry={image,ready:false};contentSources.set(file,entry);image.onload=()=>{entry.ready=true;};image.src=file;}return entry;}
 function contentFrame(key){const meta=GAME_CONTENT.extra[key];if(!meta)return null;if(contentFrames.has(key))return contentFrames.get(key);const source=contentSource(meta.file);if(!source.ready)return null;const frame=artCell(source.image,meta.rect);contentFrames.set(key,frame);return frame;}
 function contentTheme(f){
- if(LAST_FLOOR===99){const plan=floorEvents.skinPlan||(floorEvents.skinPlan=[]),keys=Object.keys(GAME_CONTENT.themes);for(let i=plan.length;i<=Math.floor((f-1)/5);i++){const choices=keys.filter(key=>key!==plan[i-1]);plan.push(choices[Math.floor(R()*choices.length)]);}return plan[Math.floor((f-1)/5)];}
- return GAME_CONTENT.tables[LAST_FLOOR]?.[chosen||'viking']?.[Math.max(0,f-1)]?.theme||'cave';
+ if(LAST_FLOOR===99){const plan=floorEvents.skinPlan||(floorEvents.skinPlan=[]),keys=Object.keys(GAME_CONTENT.themes);for(let i=plan.length;i<=Math.floor((f-1)/5);i++){const choices=keys.filter(key=>key!==plan[i-1]);plan.push(choices[Math.floor(R()*choices.length)]);}return contentProductionTheme(plan[Math.floor((f-1)/5)]);}
+ return contentProductionTheme(GAME_CONTENT.tables[LAST_FLOOR]?.[chosen||'viking']?.[Math.max(0,f-1)]?.theme||'cave');
 }
 function contentRow(){return GAME_CONTENT.tables[LAST_FLOOR]?.[chosen||'viking']?.[floor-1]||GAME_CONTENT.tables[10].viking[0];}
 function contentFloorEnemies(){const base=FLOOR_ENEMIES[Math.min(10,floor)]||FLOOR_ENEMIES[10];return {...base,start:LAST_FLOOR===99?Math.min(10,4+Math.floor(floor/8)):LAST_FLOOR===30?Math.min(9,4+Math.floor(floor/4)):base.start,max:LAST_FLOOR===99?14:base.max,every:LAST_FLOOR===99?40:base.every,table:contentRow().entries.filter(e=>!e.fixed&&!e.rare).map(e=>[Object.keys(ENEMIES).find(id=>ENEMIES[id].kind===e.kind&&ENEMIES[id].tier===e.tier),e.weight])};}

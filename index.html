@@ -4270,6 +4270,7 @@ function settle(e) {
  */
 function loadGame() {
   const d = readSave(); if (!d) return false;
+  const wasShuffleSave = ["forest", "snowfield", "marsh", "ashfield"].includes(d.theme);
   levelEffects=[];
   LAST_FLOOR=[10,30,99].includes(d.depth)?d.depth:10;
   floorEvents=d.floorEvents||{shopAt:4,houseAt:6,shopMade:false,houseMade:false};
@@ -4287,10 +4288,12 @@ function loadGame() {
   shop = d.shop ? { ...d.shop, room: rooms[d.shop.room], keeper: d.shop.keeper >= 0 ? monsters[d.shop.keeper] : null } : null;
   if(shop){shop.keepers=(Array.isArray(d.shop.keepers)?d.shop.keepers:[d.shop.keeper]).map(index=>monsters[index]).filter(Boolean);shop.keeper=shop.keeper||shop.keepers[0]||null;}
   [player, ally, ...monsters].forEach(settle);
-  debug = false; THEME = THEMES[d.theme] || THEMES.cave; floorSeed = d.seed; buildTextures(floorSeed); prewarmWater();
+  debug = false; THEME = THEMES[contentProductionTheme(d.theme)] || THEMES.cave; floorSeed = d.seed; buildTextures(floorSeed); prewarmWater();
   queue = []; cur = null; moves = []; hits = []; corpses = []; popups = []; slashes = []; particles = []; rings = []; bolts = []; lineFxs = []; puffs = [];
   impacts = []; pillars = []; banners = []; flying = null; pendingCmd = null; dash = null; resting = null;
-  state = "play"; updateSeen(); showFloorCard(); log("前回のつづきから始めた。");
+  state = "play";
+  if (wasShuffleSave) { contentObjects=[]; contentBombs=[]; newFloor(); log("前回の記録から通常の地形で再開した。"); return true; }
+  updateSeen(); showFloorCard(); log("前回のつづきから始めた。");
   return true;
 }
 
