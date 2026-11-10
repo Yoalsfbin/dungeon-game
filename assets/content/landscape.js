@@ -30,20 +30,57 @@ function contentExitFrame(theme){
  const key={forest:'exit-trail',snowfield:'exit-pass',marsh:'exit-bridge',ashfield:'exit-gate'}[theme],meta=GAME_CONTENT.extra[key];if(!meta)return null;if(contentExitFrames.has(theme))return contentExitFrames.get(theme);
  const source=contentSource(meta.file);if(!source.ready)return null;contentExitFrames.set(theme,source.image);return source.image;
 }
+function contentFieldAssetsReady(){
+ if(!THEME?.outdoor||debug)return true;
+ const theme=Object.keys(THEMES).find(key=>THEMES[key]===THEME),column=['forest','snowfield','marsh','ashfield'].indexOf(theme);
+ if(column<0)return true;
+ const terrain=contentSource('./assets/world/terrain/terrain-fields.png');
+ const scene=contentFieldScene(theme);
+ for(let row=0;row<3;row++)contentPropFrame(column,row);
+ contentExitFrame(theme);
+ const files=['tree','shrub','grass'].map(name=>`./assets/world/fields/${theme}/${name}.png`),exitKey={forest:'exit-trail',snowfield:'exit-pass',marsh:'exit-bridge',ashfield:'exit-gate'}[theme];
+ files.push(GAME_CONTENT.extra[exitKey].file);
+ return (scene.ready||scene.failed)&&(terrain.ready||terrain.failed)&&files.every(file=>{const source=contentSources.get(file);return source&&(source.ready||source.failed);});
+}
+function contentAllFieldArtReady(){
+ const terrain=contentSource('./assets/world/terrain/terrain-fields.png');if(!terrain.ready&&!terrain.failed)return false;
+ const themes=['forest','snowfield','marsh','ashfield'];
+ for(let column=0;column<themes.length;column++){
+  const theme=themes[column],scene=contentFieldScene(theme);for(let row=0;row<3;row++)contentPropFrame(column,row);contentExitFrame(theme);
+  const files=['tree','shrub','grass'].map(name=>`./assets/world/fields/${theme}/${name}.png`),exitKey={forest:'exit-trail',snowfield:'exit-pass',marsh:'exit-bridge',ashfield:'exit-gate'}[theme];files.push(GAME_CONTENT.extra[exitKey].file);
+  if((!scene.ready&&!scene.failed)||!files.every(file=>{const source=contentSources.get(file);return source&&(source.ready||source.failed);}))return false;
+ }
+ return true;
+}
+function drawContentLoading(now){
+ const width=Math.min(cv.width-32,420),height=104,x=(cv.width-width)/2,y=(cv.height-height)/2;
+ ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='rgba(8,12,16,.68)';ctx.fillRect(0,0,cv.width,cv.height);
+ ctx.fillStyle='#15283a';ctx.fillRect(x,y,width,height);ctx.strokeStyle='#9dc6d5';ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,width-2,height-2);
+ ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 20px sans-serif';ctx.fillStyle='#f0f5f1';ctx.fillText('地形を読み込み中…',cv.width/2,y+39);
+ const phase=Math.floor(now/180)%4;ctx.font='16px sans-serif';ctx.fillStyle='#bad5d7';ctx.fillText('景色を準備しています'+'・'.repeat(phase),cv.width/2,y+72);ctx.restore();
+}
 function drawContentFieldExit(context,x,y){const theme=Object.keys(THEMES).find(k=>THEMES[k]===THEME),image=contentExitFrame(theme);if(image){const width=TS*2.7,height=TS*3.6;context.save();context.imageSmoothingEnabled=false;context.drawImage(image,x-width*.5,y+TS-height,width,height);context.restore();}return true;}
 function contentLandscapeHash(x,y,salt=0){const n=Math.sin(x*127.1+y*311.7+salt*74.7)*43758.5453;return n-Math.floor(n);}
 const contentPropFrames=new Map();
 function contentPropFrame(column,row){
  const key=column+':'+row;if(contentPropFrames.has(key))return contentPropFrames.get(key);const theme=['forest','snowfield','marsh','ashfield'][column],name=['tree','shrub','grass'][row];if(!theme||!name)return null;const source=contentSource('./assets/world/fields/'+theme+'/'+name+'.png');if(!source.ready)return null;
- const canvas=document.createElement('canvas');canvas.width=144;canvas.height=row===0?172:128;const g=canvas.getContext('2d');g.drawImage(source.image,0,0,source.image.width,source.image.height,0,0,canvas.width,canvas.height);
+ const canvas=document.createElement('canvas');canvas.width=144;canvas.height=row===0?172:128;const g=canvas.getContext('2d'),isSheet=name==='grass',cellWidth=source.image.width/4,cellHeight=source.image.height/3;g.imageSmoothingEnabled=false;if(isSheet)g.drawImage(source.image,column*cellWidth,row*cellHeight,cellWidth,cellHeight,0,0,canvas.width,canvas.height);else g.drawImage(source.image,0,0,source.image.width,source.image.height,0,0,canvas.width,canvas.height);
  const mask=document.createElement('canvas');mask.width=canvas.width;mask.height=canvas.height;const mg=mask.getContext('2d'),runs=atob(CONTENT_LANDSCAPE_MASKS[key]);for(let i=0;i<runs.length;i+=3)mg.fillRect(runs.charCodeAt(i),runs.charCodeAt(i+1),runs.charCodeAt(i+2),1);g.globalCompositeOperation='destination-in';g.drawImage(mask,0,0);contentPropFrames.set(key,canvas);return canvas;
 }
 function drawContentBrush(context,X,Y,x,y,now){
- const theme=Object.keys(THEMES).find(k=>THEMES[k]===THEME),column=Math.max(0,['forest','snowfield','marsh','ashfield'].indexOf(theme)),image=contentPropFrame(column,2);if(!image)return false;
- const phase=contentLandscapeHash(x,y)*6,shift=Math.sin(now/820+phase)*1.8,scale=TS/64,palette={forest:['#315d28','#5e8d35','#9ab94c','#d5d478'],snowfield:['#526b5b','#8ba88c','#cbd9c4','#f4f1d8'],marsh:['#36584a','#568064','#9aa55d','#cfbd73'],ashfield:['#68432c','#9a6334','#c38b42','#ecc16a']}[theme]||['#315d28','#5e8d35','#9ab94c','#d5d478'];context.save();context.imageSmoothingEnabled=false;
- context.fillStyle='rgba(15,22,14,.24)';context.beginPath();context.ellipse(X+TS/2,Y+TS*.76,TS*.39,TS*.16,0,0,Math.PI*2);context.fill();
- context.drawImage(image,X-TS*.08+shift,Y-TS*.14,TS*.68,TS*.68);context.drawImage(image,X+TS*.28-shift*.55,Y+TS*.05,TS*.66,TS*.66);context.drawImage(image,X+TS*.08+shift*.35,Y+TS*.27,TS*.62,TS*.62);
- for(let i=0;i<15;i++){const u=contentLandscapeHash(x,y,i+61),v=contentLandscapeHash(x,y,i+83),bx=X+TS*(.12+u*.76),by=Y+TS*(.48+v*.42),height=TS*(.12+contentLandscapeHash(x,y,i+107)*.27),lean=Math.sin(now/900+phase+i*1.7)*TS*.025;context.strokeStyle=palette[i%palette.length];context.lineWidth=(1.3+u*1.5)*scale;context.lineCap='round';context.beginPath();context.moveTo(bx,by);context.quadraticCurveTo(bx+lean*1.5,by-height*.62,bx+lean,by-height);context.stroke();if(i%4===0){context.fillStyle=palette[(i+2)%palette.length];context.beginPath();context.ellipse(bx+lean,by-height,2.3*scale,1.2*scale,lean,0,Math.PI*2);context.fill();}}
+ const theme=Object.keys(THEMES).find(k=>THEMES[k]===THEME),column=Math.max(0,['forest','snowfield','marsh','ashfield'].indexOf(theme)),grass=contentPropFrame(column,2),leaves=contentPropFrame(column,1);if(!grass)return false;
+ const phase=contentLandscapeHash(x,y)*6,shift=Math.sin(now/820+phase)*TS*.025,scale=TS/64;context.save();context.imageSmoothingEnabled=false;
+ context.fillStyle='rgba(15,22,14,.42)';context.beginPath();context.ellipse(X+TS/2,Y+TS*.79,TS*.4,TS*.14,0,0,Math.PI*2);context.fill();
+ if(leaves){context.globalAlpha=.92;context.drawImage(leaves,X+TS*.02-shift,Y+TS*.25,TS*.63,TS*.59);context.save();context.translate(X+TS*.99+shift,Y+TS*.1);context.scale(-1,1);context.drawImage(leaves,0,0,TS*.64,TS*.64);context.restore();}
+ context.globalAlpha=1;context.drawImage(grass,X-TS*.03+shift,Y-TS*.12,TS*.72,TS*.78);
+ // Broad layered leaves form a readable tuft at game scale; dark edges keep them distinct from the floor.
+ const bladeColors=theme==='snowfield'?['#63836e','#b9d3c2','#e9efd8']:theme==='marsh'?['#365f4d','#71986a','#c2c87c']:theme==='ashfield'?['#68432c','#a36a35','#d7a753']:['#315a28','#5f8c34','#b7c65a'];
+ for(let i=0;i<8;i++){const u=contentLandscapeHash(x,y,i+61),side=contentLandscapeHash(x,y,i+83),bx=X+TS*(.12+u*.76),by=Y+TS*(.72+side*.1),height=TS*(.2+contentLandscapeHash(x,y,i+107)*.28),lean=Math.sin(now/900+phase+i*1.7)*TS*.035,bend=lean+(side-.5)*TS*.18,width=(3.2+u*2.3)*scale;
+  const blade=()=>{context.beginPath();context.moveTo(bx-width*.55,by);context.quadraticCurveTo(bx+bend-width*.3,by-height*.56,bx+bend,by-height);context.quadraticCurveTo(bx+bend+width*.4,by-height*.57,bx+width*.55,by);context.closePath();};
+  blade();context.fillStyle='#1b281b';context.fill();context.save();context.translate(-width*.14,-1);blade();context.fillStyle=bladeColors[i%bladeColors.length];context.fill();context.restore();
+  context.strokeStyle=bladeColors[(i+1)%bladeColors.length];context.lineWidth=Math.max(1,scale);context.beginPath();context.moveTo(bx,by-2*scale);context.quadraticCurveTo(bx+bend*.65,by-height*.6,bx+bend,by-height+2*scale);context.stroke();
+ }
+ for(let i=0;i<4;i++){const bx=X+TS*(.24+i*.15),by=Y+TS*.79;context.fillStyle=bladeColors[(i+1)%bladeColors.length];context.beginPath();context.ellipse(bx,by,TS*.065,TS*.035,(i-1.5)*.35,0,Math.PI*2);context.fill();context.fillStyle='rgba(225,226,142,.55)';context.fillRect(bx-1,by-2,2,2);}
  context.restore();return true;
 }
 function contentLandscapePiece(theme,variant){
@@ -55,12 +92,16 @@ function contentLandscapePiece(theme,variant){
 function drawContentLandscape(sx,sy){
  const theme=Object.keys(THEMES).find(k=>THEMES[k]===THEME);if(!THEME.outdoor)return;
  if(contentFieldUsingArtwork){if(stairs&&seen[stairs.y]?.[stairs.x])drawContentFieldExit(ctx,sx(stairs.x)+TS/2,sy(stairs.y));return;}
- for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
-  if(!isWallTile(tileAt(x,y))||(!seen[y]?.[x]&&!visible(x,y)&&!lightAll))continue;
-  const X=sx(x),Y=sy(y);if(X< -TS*2||Y< -TS*3||X>cv.width+TS||Y>cv.height+TS)continue;
-  const hash=contentLandscapeHash(x,y),variant=Math.floor(hash*24),image=contentLandscapePiece(theme,variant);if(!image)continue;
-  const offset=(contentLandscapeHash(x,y,2)-.5)*TS*.16,scale=.91+contentLandscapeHash(x,y,3)*.18;
-  ctx.save();ctx.globalAlpha=THEME?.outdoor||visible(x,y)?1:.4;ctx.drawImage(image,X+TS/2-TS*.67*scale+offset,Y+TS-TS*1.6*scale,TS*1.34*scale,TS*1.675*scale);ctx.restore();
+ const{x:ox,y:oy,size}=CONTENT_FIELD_START,step=4;
+ // Place scenery in scattered clusters over blocked ground. Several tiles share each cluster,
+ // so foliage reads as continuous terrain instead of a repeated prop on every map cell.
+ for(let gy=oy+1;gy<oy+size-1;gy+=step)for(let gx=ox+1;gx<ox+size-1;gx+=step){
+  const seed=contentLandscapeHash(gx,gy,contentFieldTemplate+201);if(seed<.48)continue;
+  const x=Math.min(ox+size-2,gx+Math.floor(contentLandscapeHash(gx,gy,contentFieldTemplate+202)*step)),y=Math.min(oy+size-2,gy+Math.floor(contentLandscapeHash(gx,gy,contentFieldTemplate+203)*step));
+  if(!isWallTile(tileAt(x,y)))continue;
+  const X=sx(x),Y=sy(y),variant=Math.floor(contentLandscapeHash(gx,gy,contentFieldTemplate+204)*24),image=contentLandscapePiece(theme,variant);if(!image||X< -TS*2||Y< -TS*3||X>cv.width+TS||Y>cv.height+TS)continue;
+  const offset=(contentLandscapeHash(gx,gy,205)-.5)*TS*.3,scale=1.05+contentLandscapeHash(gx,gy,206)*.34,width=TS*1.58*scale,height=TS*1.82*scale;
+  ctx.save();ctx.drawImage(image,X+TS/2-width/2+offset,Y+TS-height,width,height);ctx.restore();
  }
  if(stairs&&seen[stairs.y]?.[stairs.x])drawContentFieldExit(ctx,sx(stairs.x)+TS/2,sy(stairs.y));
 }

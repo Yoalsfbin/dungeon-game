@@ -116,6 +116,42 @@ function loadWorldArt() {
   for(const key of ["spike","gas","warp","hunger","rot","rust","pit"]){const icon=new Image();icon.onload=()=>{worldArt.mechanisms.set(key,icon);draw.st=null;};icon.src="./assets/world/traps/"+key+".png";}
 }
 function drawMechanism(key, x, y, context=ctx) {
+  if(key==="stairs"){
+    const unit=TS/32;context.save();context.translate(x,y);context.scale(unit,unit);
+    const r=(px,py,w,h,color)=>{context.fillStyle=color;context.fillRect(px,py,w,h);};
+    // Restore the old square stairwell silhouette, rendered in the game's 2px pixel scale.
+    r(2,3,28,27,"#171411");r(3,3,26,26,"#30271f");
+    r(3,3,26,2,"#bca984");r(3,3,2,24,"#bca984");
+    r(5,5,22,22,"#76634e");r(7,7,18,18,"#1b1919");
+    // Deep back wall and the dark void beyond the last visible tread.
+    r(8,7,16,5,"#111315");r(9,8,14,2,"#242529");
+    r(9,10,14,1,"#51483f");r(8,11,16,1,"#332c27");
+    // Receding stone steps widen toward the viewer, matching the former artwork's perspective.
+    [[12,11,21],[15,10,22],[18,9,23],[21,8,24],[24,7,25]].forEach(([top,left,right],i)=>{
+      const face=["#393638","#48413c","#5a4d43","#706050","#88745d"][i];
+      const light=["#665c53","#796c5d","#90806a","#a08b6c","#b49a74"][i];
+      r(left,top,right-left,3,face);r(left+1,top,right-left-2,1,light);
+      r(left,top+2,right-left,1,"#292321");
+      r(left,top+1,1,1,"#b49a78");r(right-1,top+1,1,1,"#342b26");
+      if(i>1){r(left+2,top+1,2,1,i%2?"#796956":"#8e795f");r(right-4,top+1,1,1,"#4a4038");}
+    });
+    // Chunked, chipped masonry around all four sides; highlights and seams give each block volume.
+    const blocks=[
+      [4,4,6,3],[10,4,7,3],[18,4,6,3],[4,8,3,5],[4,14,3,5],[4,20,3,5],
+      [25,8,3,5],[25,14,3,5],[25,20,3,5],[7,25,6,3],[14,25,7,3],[22,25,4,3]
+    ];
+    blocks.forEach(([bx,by,bw,bh],i)=>{
+      r(bx,by,bw,bh,i%3===0?"#a18e74":"#88745e");
+      r(bx,by,bw,1,"#d0bd98");r(bx,by+1,1,bh-1,"#b5a081");
+      r(bx+1,by+bh-1,bw-1,1,"#514438");r(bx+bw-1,by+1,1,bh-1,"#665543");
+      if(i%3===1){r(bx+2,by+1,1,1,"#d7c8a9");r(bx+bw-2,by+bh-2,1,1,"#71604c");}
+    });
+    // Broken rim edges, tiny stone flecks and a worn lip at the near edge.
+    r(3,6,1,2,"#78664f");r(28,9,1,3,"#4b4035");r(5,23,2,1,"#d3c19d");
+    r(8,28,16,1,"#171411");r(9,27,14,1,"#d1bd94");
+    r(6,6,1,1,"#d9c9a6");r(24,24,1,1,"#c3ad85");r(27,7,1,1,"#75634d");
+    context.restore();return true;
+  }
   const image=worldArt.mechanisms.get(key); if(!image)return false;
   context.drawImage(image,x-2,y-2,TS+4,TS+4); return true;
 }

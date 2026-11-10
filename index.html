@@ -39,6 +39,7 @@
 <style>
   #controls { display:flex; flex-wrap:wrap; gap:12px; margin-top:12px; align-items:start; }
   #controls button { min-height:44px; min-width:44px; border:1px solid #9a8c78; border-radius:6px; background:#241d19; color:#f0e6d0; font:inherit; padding:8px; touch-action:manipulation; cursor:pointer; }
+  #controls button, #actions summary { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   #controls button:active, #controls button[aria-pressed="true"] { background:#625021; }
   #pad { display:grid; grid-template-columns:repeat(3,48px); gap:4px; }
   #pad button { touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
@@ -49,6 +50,7 @@
   #actions summary { min-height:44px; padding:10px; border:1px solid #635548; border-radius:6px; cursor:pointer; touch-action:manipulation; }
   #actions .control-options { display:flex; flex-wrap:wrap; gap:6px; padding-top:6px; }
   #actions .control-options button { flex:1 0 40%; }
+  #actions .control-heading { flex-basis:100%; padding:5px 2px 0; color:#c4b79e; font-size:11px; }
   .pointer-help { display:none; }
   @media (max-width:600px), (pointer:coarse) {
     .keyboard-help { display:none; }
@@ -105,6 +107,7 @@
   #log:focus { overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y; outline:2px solid #9aaee6; outline-offset:2px; }
   #gameSurface { position:relative; width:100%; aspect-ratio:13 / 9; }
   #wrap { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  #controls { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   #wrap input, #wrap textarea { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
   #inv { overscroll-behavior:contain; touch-action:manipulation; }
   .menu-list { min-height:0; }
@@ -113,6 +116,7 @@
   .menu-pager button:disabled { opacity:.35; }
   .menu-pager span { font-size:12px; color:#c2cce5; }
   #wrap[data-screen="title"] #status, #wrap[data-screen="title"] #log { display:none; }
+  #wrap[data-screen="keys"] #status, #wrap[data-screen="keys"] #log { display:none; }
   #controlHint { grid-column:1 / -1; flex-basis:100%; margin:0; color:#d0c5a8; font-size:12px; line-height:1.5; }
   #controls[hidden], #pad[hidden] { display:none; }
   #controls button:disabled { opacity:.45; cursor:default; }
@@ -120,12 +124,16 @@
   .equipment-effects { margin:0;padding-left:1.2em;line-height:1.65; }
   .equipment-effects li { margin-bottom:.35em; }
   #controls .danger { color:#ffb5a1; }
+  .fused-mark { display:inline-block; margin-left:5px; color:#ffd45b; font:700 1.15em/1 sans-serif; text-shadow:0 1px 2px #291d08; vertical-align:-1px; }
   #actions .control-options .debug-tools { flex-basis:100%; display:flex; flex-wrap:wrap; gap:4px; }
   @media (max-width:600px), (max-height:500px) and (orientation:landscape) {
     #wrap { grid-template-rows:auto minmax(0,1fr) 104px auto; }
     #wrap[data-screen="title"] { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) auto; }
+    #wrap[data-screen="keys"] { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) auto; }
     #wrap[data-screen="title"] #stage { grid-column:1; grid-row:1; }
     #wrap[data-screen="title"] #controls { grid-column:1; grid-row:2; }
+    #wrap[data-screen="keys"] #stage { grid-column:1; grid-row:1; }
+    #wrap[data-screen="keys"] #controls { grid-column:1; grid-row:2; }
     #stage { align-items:flex-start; }
     #inv { position:fixed; top:var(--menu-top,64px) !important; left:6px !important; width:calc(100% - 12px); max-width:none; height:auto; max-height:var(--menu-height,95dvh); overflow:hidden; flex-direction:column; flex-wrap:nowrap; z-index:20; }
     #inv .win[data-pane] { width:100%; display:flex; flex-direction:column; overflow:hidden; min-height:0; flex:none; }
@@ -173,7 +181,7 @@
     <div id="actions"></div>
   </div>
   <div id="help">
-    <div class="pointer-help">方向ボタンで移動。攻撃 / 決定で実行、戻るで閉じます。道具の行は直接タップできます。<br>特技・矢・移動モードは「その他」、地図・履歴・音・説明は「メニュー」。足元の道具に乗るには「その他」の移動モードを「拾わない」に切り替えます。</div>
+    <div class="pointer-help">方向ボタンで移動。攻撃 / 決定で実行、戻るで閉じます。道具の行は直接タップできます。<br>特技・矢・階段は「行動」、地図・履歴・設定は「メニュー」。足元の道具に乗るには「移動方式」を「拾わない」に切り替えます。</div>
     <div class="keyboard-help">
     移動: 矢印 / テンキー（斜めは 7 9 1 3、Y U B N）　攻撃: Z / Space　道具: X / I（↑↓ 選択、Z 決定、X 戻る、Tab 整理）　足踏み: 5 / .　操作の一覧: H<br>
     向きだけ: C+方向　ダッシュ: Shift+方向　斜めだけ: D+矢印 2 つ　拾わずに乗る: V+方向　休む: Q　振り向く: S　矢を撃つ: F　特技: A　地図: M（押している間）　履歴: L　効果音: N<br>
@@ -249,7 +257,7 @@ function drawHero(context, entity, now, footX, footY, size) {
     frame = Math.min(3, Math.floor((now - active.t0) / active.ms * 4));
   } else if (entity.atkP != null) { action = "attack"; frame = Math.min(3, Math.floor(entity.atkP * 4)); }
   else if (entity.walkP != null) { action = "walk"; frame = ((entity.steps || 0) % 2) * 2 + Math.min(1, Math.floor(entity.walkP * 2)); }
-  else if((entity===player||entity===ally)&&state!=="title"&&entity.hp>0&&!entity.sleep&&!entity.stun){action="walk";frame=(Math.floor(now/340)%2)?2:0;}
+  else if((entity===player||entity===ally)&&state!=="title"&&entity.hp>0&&!entity.sleep&&!entity.stun){action="walk";frame=Math.floor(now/180)%4;}
   const requested = action === "idle" ? "walk" : action;
   const image = heroImages.get(character + "-" + requested);
   if (!image) return false;
@@ -1775,6 +1783,7 @@ function openDebug() {
              onKey: low => { if (low === "c") { closeMenu(); monsters = monsters.filter(m => m.peaceful); log("敵をすべて消した。"); } else if (low === "g") closeMenu(); } });
 }
 function descend(fromPit = false) {
+  if(debug){returnToTitle();return;}
   if (floor >= LAST_FLOOR) return;
   if (player.inv.some(o => o.unpaid)) { player.inv.forEach(o => { delete o.unpaid; }); log("代金を払わずに階段を降りてしまった…"); }
   floor++;
@@ -1813,8 +1822,8 @@ const tileAt = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH ? map[y][x] : TILE
 const isWallTile = t => t === TILE.WALL || t === TILE.SECRET;
 const walkable = (x, y) => { const t = tileAt(x, y); return !contentObjectAt(x,y)&&!isWallTile(t) && t !== TILE.WATER && t !== TILE.HOLE; };
 const flyable = (x, y) => !contentObjectAt(x,y)&&!isWallTile(tileAt(x, y));            // 矢や投げた物は水路や穴の上も飛ぶ
-// 斜め移動は角を抜けられない（本家と同じ）
-const diagonalClear = (x, y, dx, dy) => dx === 0 || dy === 0 || (!contentObjectAt(x+dx,y)&&!contentObjectAt(x,y+dy)&&!isWallTile(tileAt(x + dx, y)) && !isWallTile(tileAt(x, y + dy)));
+// 通常地形では壁角を抜けない。シャッフル地形は歩行マスが斜めに接していれば通過できる。
+const diagonalClear = (x, y, dx, dy) => dx === 0 || dy === 0 || !!THEME?.outdoor || (!contentObjectAt(x+dx,y)&&!contentObjectAt(x,y+dy)&&!isWallTile(tileAt(x + dx, y)) && !isWallTile(tileAt(x, y + dy)));
 const canStep = (x, y, dx, dy) => walkable(x + dx, y + dy) && diagonalClear(x, y, dx, dy);
 let fullLog = [];
 function log(s) { logLines.push(s); if (logLines.length > 4) logLines.shift(); fullLog.push(s); if (fullLog.length > 60) fullLog.shift(); }
@@ -2547,15 +2556,38 @@ function drawTerrain(t, x, y, X, Y, now) {
   }
 }
 function drawDecor(d, X, Y) {     // 草むらと小石。小さな影を付けて床から浮かせる
-  const px = (x, y, c, w = 1, hh = 1) => { ctx.fillStyle = c; ctx.fillRect(X + (d.ox + x) * SC, Y + (d.oy + y) * SC, w * SC, hh * SC); };
+  const plant = ["grass", "fern", "glowshroom"].includes(d.kind), ox = plant ? Math.max(2, Math.min(6, Math.round(d.ox * .35))) : d.ox, oy = plant ? Math.max(13, Math.min(22, d.oy)) : d.oy;
+  const px = (x, y, c, w = 1, hh = 1) => { ctx.fillStyle = c; ctx.fillRect(X + (ox + x) * SC, Y + (oy + y) * SC, w * SC, hh * SC); };
   if (d.kind === "grass") {
-    px(-1, 5, "rgba(0,0,0,0.35)", 8, 2);
-    for (const [x, hh, c] of [[0, 4, "#3e6a24"], [1, 6, "#6aa040"], [2, 5, "#4e8030"], [3, 7, "#80b850"], [4, 4, "#4e8030"], [5, 5, "#6aa040"]])
-      px(x, 5 - hh, c, 1, hh);
+    // 地面に広がる株。細い縦線ではなく、根元・葉身・葉先を色分けして描く。
+    const sway = Math.sin(performance.now() / 720 + d.ox * .7) * .45;
+    ctx.save(); ctx.globalAlpha = .5; ctx.fillStyle = "#171b12"; ctx.beginPath();
+    ctx.ellipse(X + (ox + 8) * SC, Y + (oy + 1) * SC, 15 * SC, 3 * SC, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    px(0, -1, "#493b25", 16, 2); px(2, -2, "#72603a", 12, 1); px(4, 0, "#26351d", 8, 1);
+    const blades = [
+      [1,0,-2,7,"#315629","#648c39"], [3,0,-5,7,"#426d2d","#9ab84a"],
+      [5,0,-8,8,"#315a2a","#80a942"], [7,0,-10,10,"#3d682b","#b0c75a"],
+      [9,0,-7,8,"#315a2a","#83a83d"], [11,0,-5,6,"#294b26","#6d9236"],
+      [13,0,-3,5,"#365c29","#90ad43"], [4,0,-1,5,"#446b2b","#b4c45a"],
+      [8,0,-3,6,"#294c25","#74983a"], [10,0,-1,4,"#416b2b","#a0b84d"]
+    ];
+    for (const [bx,,top,bottom,shade,light] of blades) {
+      const lean = Math.round(sway * (bx < 7 ? -1 : 1));
+      for (let y = top; y < bottom; y++) {
+        const inset = Math.max(0, Math.floor((y - top) / 4));
+        px(bx + lean + inset, y, shade, Math.max(1, 3 - inset), 1);
+      }
+      px(bx + lean, top, light, 1, 1);
+    }
+    px(3, -1, "#d0cc73", 1, 1); px(8, -3, "#e0d982", 1, 1); px(11, 0, "#c0bd62", 1, 1);
   } else if (d.kind === "fern") {          // シダ
-    px(-1, 6, "rgba(0,0,0,0.3)", 9, 2);
-    for (const [x, y, c] of [[3, 0, "#90c860"], [2, 1, "#6aa040"], [4, 1, "#6aa040"], [1, 2, "#4e8030"], [3, 2, "#80b850"], [5, 2, "#4e8030"],
-                              [0, 3, "#3e6a24"], [3, 3, "#6aa040"], [6, 3, "#3e6a24"], [3, 4, "#4e8030"], [3, 5, "#3e6a24"]]) px(x, y, c);
+    ctx.save(); ctx.globalAlpha = .45; ctx.fillStyle = "#182018"; ctx.beginPath(); ctx.ellipse(X+(ox+8)*SC,Y+(oy+1)*SC,15*SC,3*SC,0,0,7);ctx.fill();ctx.restore();
+    px(4,0,"#57472a",8,2);px(6,-1,"#74623a",4,1);
+    for (const [x,y,w,c] of [[0,-7,4,"#315b2b"],[2,-10,4,"#3d7131"],[5,-12,4,"#477d34"],[8,-11,4,"#3c702f"],[11,-8,4,"#315b2b"],
+      [1,-4,5,"#4e8437"],[4,-6,5,"#61963d"],[7,-7,5,"#689d42"],[10,-5,5,"#4d8335"],[3,-2,5,"#3d6b2d"],[7,-3,5,"#4c7c32"]]) {
+      px(x,y,c,w,2);px(x+1,y+1,"#a8c65a",Math.max(1,w-2),1);
+    }
+    px(6,-13,"#bfd36b",2,1);px(5,-2,"#c1cf66",2,1);
   } else if (d.kind === "puddle") {        // 水たまり（空を映して少し光る）
     px(0, 1, "#2a4050", 8, 2); px(1, 0, "#2a4050", 6, 1); px(1, 3, "#2a4050", 6, 1);
     px(1, 1, "#4a7088", 6, 2); px(2, 1, "#8ab8d0", 2, 1);
@@ -2580,14 +2612,18 @@ function drawDecor(d, X, Y) {     // 草むらと小石。小さな影を付け�
     px(0, 1, "#3a1810", 4, 2); px(1, 1, `rgba(255,${Math.round(120 * f)},40,${0.6 + 0.4 * f})`, 2, 1); px(1, 0, `rgba(255,200,80,${f})`, 1, 1);
   } else if (d.kind === "glowshroom") {   // 青白く光るキノコ 2 本（ゆっくり明るさが変わり、まわりの床をほんのり照らす）
     const f = 0.55 + 0.45 * Math.sin(performance.now() / 700 + d.ox * 1.7);
-    const gx = X + (d.ox + 3) * SC, gy = Y + (d.oy + 2) * SC, gr = ctx.createRadialGradient(gx, gy, 2, gx, gy, 26);
-    gr.addColorStop(0, `rgba(120,255,235,${0.7 * f})`); gr.addColorStop(1, "rgba(120,255,235,0)");
-    ctx.fillStyle = gr; ctx.fillRect(gx - 26, gy - 26, 52, 52);
-    px(-1, 8, "rgba(0,0,0,0.35)", 10, 1);
-    px(2, 4, "#e0f0e8", 2, 4); px(3, 4, "#a8c8c0", 1, 4);                                       // 大きいほうの柄
-    px(0, 2, "#1e7a72", 6, 2); px(1, 1, "#2aa89c", 4, 1); px(0, 2, "#2aa89c", 4, 1);           // かさ
-    px(1, 1, `rgba(190,255,245,${0.6 + 0.4 * f})`, 2, 1); px(4, 3, `rgba(160,255,240,${0.5 + 0.5 * f})`, 1, 1);
-    px(7, 6, "#e0f0e8", 1, 2); px(6, 5, "#2aa89c", 3, 1); px(7, 4, `rgba(190,255,245,${0.6 + 0.4 * f})`, 1, 1);   // 小さいほう
+    const gx = X + (ox + 12) * SC, gy = Y + (oy - 2) * SC, gr = ctx.createRadialGradient(gx, gy, 2, gx, gy, 34);
+    gr.addColorStop(0, `rgba(120,255,235,${0.34 * f})`); gr.addColorStop(1, "rgba(120,255,235,0)");
+    ctx.fillStyle = gr; ctx.fillRect(gx - 34, gy - 34, 68, 68);
+    ctx.save();ctx.globalAlpha=.56;ctx.fillStyle="#101c20";ctx.beginPath();ctx.ellipse(X+(ox+13)*SC,Y+(oy+2)*SC,18*SC,3.5*SC,0,0,7);ctx.fill();ctx.restore();
+    // ふくらんだ傘、裏側のひだ、白い柄を重ね、小さくてもキノコと読める形にする。
+    px(8,-2,"#d5e8cf",5,8);px(9,-1,"#f2f3d9",3,7);px(8,6,"#c6d6b4",5,2);px(9,7,"#728b68",3,1);
+    px(5,-8,"#123d43",11,1);px(3,-7,"#124c4c",15,2);px(2,-5,"#146c66",17,2);px(1,-3,"#176e68",18,2);px(3,-1,"#155852",15,2);
+    px(6,-8,"#55bca9",8,1);px(4,-6,`rgba(210,255,222,${.55+.4*f})`,8,1);px(2,-4,"#49ab9a",5,1);px(13,-3,"#0f4b49",5,1);
+    px(7,-5,"#e5f3d8",2,1);px(13,-5,"#c9ead0",2,1);px(5,-2,"#c8e8d0",1,1);px(10,-2,"#b7dfc4",1,1);
+    // Smaller cap and stem in front, offset so the pair has depth.
+    px(19,2,"#bfd8c6",3,5);px(20,3,"#edf0d5",2,4);px(17,1,"#12464a",8,1);px(16,2,"#17645e",10,2);px(17,4,"#13534f",8,1);
+    px(18,1,`rgba(218,255,225,${.5+.4*f})`,4,1);px(18,2,"#d9f0d7",1,1);px(22,3,"#a6d7c1",1,1);
   } else if (d.kind === "ash") {          // 灰の小山と、立ちのぼる細い煙
     const t = performance.now() / 900 + d.ox;
     px(0, 3, "rgba(0,0,0,0.35)", 7, 1); px(1, 1, "#5a5250", 5, 2); px(2, 0, "#8a8280", 3, 1); px(1, 1, "#7a7270", 2, 1);
@@ -2647,6 +2683,7 @@ const TRAP_ICON = {
   },
 };
 function drawTrap(t, x, y, g = ctx) {          // g: 説明書の絵を書き出す時は別のキャンバス
+  const originalArt=worldArt?.mechanisms?.get(t.kind);if(originalArt){g.drawImage(originalArt,x,y,TS,TS);return;}
   const X0 = x + 14, Y0 = y + 14, px = (u, v, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(X0 + u * SC, Y0 + v * SC, w * SC, h * SC); };
   px(0, 0, "#1e1814", 18, 18); px(1, 1, "#6a5a4c", 16, 16);
   px(1, 1, "#8e7e6c", 16, 1); px(1, 1, "#8e7e6c", 1, 16); px(1, 16, "#463a30", 16, 1); px(16, 1, "#463a30", 1, 16);   // ふちの光と影
@@ -2711,7 +2748,7 @@ function draw(now = performance.now()) {
   const sx = x => Math.round((x - ox) * TS), sy = y => Math.round((y - oy) * TS);
   litTorches = [];
   for (let y = Math.floor(oy) - 1; y <= Math.floor(oy) + VH + 1; y++) for (let x = Math.floor(ox) - 1; x <= Math.floor(ox) + VW + 1; x++) {
-    if (x < 0 || y < 0 || x >= MW || y >= MH || (!seen[y][x]&&!visible(x,y)&&!lightAll)) continue;
+    if (x < 0 || y < 0 || x >= MW || y >= MH || (!THEME.outdoor&&!seen[y][x]&&!visible(x,y)&&!lightAll)) continue;
     const isWall = isWallTile(map[y][x]), W_ = (xx, yy) => isWallTile(tileAt(xx, yy));
     const X = sx(x), Y = sy(y);
     if (!isWall) {
@@ -2775,6 +2812,7 @@ function draw(now = performance.now()) {
   for (const it of items) if (visible(it.x, it.y)) {
     ctx.fillStyle = "rgba(0,0,0,0.48)"; ctx.beginPath(); ctx.ellipse(sx(it.x) + 32, sy(it.y) + 47, 13, 4, 0, 0, 7); ctx.fill();
     ctx.drawImage(itemArt(it.kind), sx(it.x) + 12, sy(it.y) + 10, 40, 40);
+    if(it.fused){ctx.font="bold 15px sans-serif";ctx.textAlign="center";ctx.fillStyle="#ffe278";ctx.strokeStyle="#382914";ctx.lineWidth=3;ctx.strokeText("★",sx(it.x)+53,sy(it.y)+19);ctx.fillText("★",sx(it.x)+53,sy(it.y)+19);ctx.textAlign="left";}
     { const k = ((now + (it.x * 37 + it.y * 91) * 53) % 2600) / 260;   // ときどききらりと光る（道具ごとに時間をずらす）
       if (k < 1) { const a = Math.sin(k * Math.PI), cx = sx(it.x) + 40, cy = sy(it.y) + 18, r = 2 + a * 5;
         ctx.globalAlpha = a; ctx.fillStyle = "#ffffff"; ctx.fillRect(cx - r, cy - 1, r * 2, 2); ctx.fillRect(cx - 1, cy - r, 2, r * 2); ctx.globalAlpha = 1; } }
@@ -3168,8 +3206,10 @@ function drawBigMap() {           // 周りを見る: フロア全体の地図�
   const s = 16, x0 = (cv.width - MW * s) / 2, y0 = (cv.height - MH * s) / 2;
   ctx.fillStyle = "#000d"; ctx.fillRect(0, 0, cv.width, cv.height);
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-    if ((!seen[y][x]&&!visible(x,y)&&!lightAll) || isWallTile(map[y][x])) continue;
+    const discovered=THEME.outdoor?seen[y][x]:(seen[y][x]||visible(x,y)||lightAll);if (!discovered || isWallTile(map[y][x])) continue;
     ctx.fillStyle = visible(x, y) ? "#4a7ae0" : "#2a4a90"; ctx.fillRect(x0 + x * s + 1, y0 + y * s + 1, s - 2, s - 2);
+    ctx.strokeStyle = visible(x, y) ? "rgba(220,235,255,.48)" : "rgba(160,185,225,.28)";
+    ctx.lineWidth = 1; ctx.strokeRect(x0 + x * s + .5, y0 + y * s + .5, s, s);
   }
   const dot = (x, y, c) => { ctx.fillStyle = c; ctx.fillRect(x0 + x * s + 3, y0 + y * s + 3, s - 6, s - 6); };
   if (stairs.x >= 0 && (seen[stairs.y][stairs.x] || lightAll)) dot(stairs.x, stairs.y, "#ffffff");
@@ -3183,9 +3223,10 @@ function drawBigMap() {           // 周りを見る: フロア全体の地図�
   ctx.fillText("周りを見る　黄: 自分　赤: 敵　水色: 道具　白: 階段　" + inputHint("（キーを離すと閉じる）", "（戻るで閉じる）"), 20, cv.height - 14);
 }
 function drawMinimap() {
-  const s = 4, x0 = cv.width - MW * s - 8, y0 = 8;
+  const s = THEME.outdoor?5:4, x0 = cv.width - MW * s - 12, y0 = 12;
+  ctx.fillStyle="rgba(8,12,16,.72)";ctx.fillRect(x0-5,y0-5,MW*s+10,MH*s+10);ctx.strokeStyle="rgba(225,235,220,.72)";ctx.lineWidth=1.5;ctx.strokeRect(x0-4.5,y0-4.5,MW*s+9,MH*s+9);
   for (let y = 0; y < MH; y++) for (let x = 0; x < MW; x++) {
-    if ((!seen[y][x]&&!visible(x,y)&&!lightAll) || isWallTile(map[y][x])) continue;
+    const discovered=THEME.outdoor?seen[y][x]||lightAll:(seen[y][x]||visible(x,y)||lightAll);if (!discovered || isWallTile(map[y][x])) continue;
     ctx.fillStyle = "#3a6ad0aa"; ctx.fillRect(x0 + x * s, y0 + y * s, s, s);
   }
   for (const it of items) if (lightAll || seen[it.y][it.x]) { ctx.fillStyle = "#60e0ff"; ctx.fillRect(x0 + it.x * s, y0 + it.y * s, s, s); }
@@ -3208,7 +3249,7 @@ function drawTitle(now = performance.now()) {
   ctx.globalAlpha = 1;
   ctx.textAlign = "center";
   ctx.font = "bold 30px monospace"; ctx.lineWidth = 5; ctx.strokeStyle = "#000";
-  const title = titleConfirm ? "記録を上書きします。同じキャラをもう一度選ぶと開始" : dbgPick ? "デバッグモード：主人公をえらぶ" : "主人公をえらぶ";
+  const title = dbgPick ? "デバッグルーム：主人公をえらぶ" : "主人公をえらぶ";
   const titleHeroes=[["viking","1","ヨルン","北の雪国から来た戦士"],["ranger","2","ラティ","南の密林の見回り役"]];
   [...titleHeroes].sort((a,b)=>Number(a[0]===titleFocus)-Number(b[0]===titleFocus)).forEach(([k])=>{
     const base=516,focused=titleFocus===k;
@@ -3233,7 +3274,7 @@ function drawTitle(now = performance.now()) {
   });
   const shade=ctx.createLinearGradient(0,0,0,116);shade.addColorStop(0,"rgba(8,10,15,.85)");shade.addColorStop(.7,"rgba(8,10,15,.55)");shade.addColorStop(1,"rgba(8,10,15,0)");ctx.fillStyle=shade;ctx.fillRect(0,0,W,116);
   drawTitleLogo(ctx,100,6,W-200,60);
-  ctx.font=`bold ${titleConfirm?17:20}px monospace`;ctx.lineWidth=4;ctx.strokeStyle="#080a0f";ctx.strokeText(title,W/2,92);ctx.fillStyle=titleConfirm?"#ff9080":"#e8c040";ctx.fillText(title,W/2,92);
+  ctx.font="bold 20px monospace";ctx.lineWidth=4;ctx.strokeStyle="#080a0f";ctx.strokeText(title,W/2,92);ctx.fillStyle="#e8c040";ctx.fillText(title,W/2,92);
   titleHeroes.forEach(([k,key,name,sub])=>{
     const cx=W*(k==="ranger"?.7:.3),focused=titleFocus===k;
     const bx=cx-120,by=462;
@@ -3247,7 +3288,7 @@ function drawTitle(now = performance.now()) {
       ctx.fillText(`${rec.plays} 回挑戦・クリア ${rec.clears} 回・最高到達 ${rec.best}F`, cx, by + 75); }
   });
   ctx.font = "15px monospace"; ctx.fillStyle = "#b8ac98";
-  ctx.fillText(inputHint("← → で選ぶ・Enterで開始　1 / 2でも開始　Kでキー設定", "キャラクターか下のボタンをタップして開始"), W / 2, H - 17);
+  ctx.fillText(inputHint("← → で主人公を選ぶ・Enterで次へ　1 / 2でも選択　Kでキー設定", "主人公を選ぶと冒険の深さを選べます"), W / 2, H - 17);
   const sv = readSave();
   if (sv) { ctx.font = "bold 17px monospace"; ctx.fillStyle = "#ffe080";
     ctx.fillText(`${inputHint("C でつづきから", "「つづきから」で再開")}（${sv.player.name}・${sv.floor}F・Lv ${sv.player.lv}）`, W / 2, H - 40); ctx.font = "15px monospace"; }
@@ -3263,12 +3304,11 @@ let menu = null;
 let pm = null;
 function openMenu(o) { pm = { cur: 0, vis: 14, ...o }; state = "menu"; invEl.style.display = "flex"; renderMenu(); }
 function closeMenu() { const destination=pm?.returnState||"play"; pm = null; invEl.style.display = "none"; if (state === "menu") state = destination; }
-function openDifficulty(){
-  const previous=state;
-  openMenu({returnState:previous,title:()=>"難易度設定（次の冒険から）",rows:()=>[
+function openDifficulty(who){
+  openMenu({returnState:"title",title:()=>readSave()?"新しい冒険の深さを選ぶ（記録は上書き）":"冒険の深さを選ぶ",rows:()=>[
     {label:(dungeonDepth===10?"✓ ":"")+"気軽な冒険"},
     {label:(dungeonDepth===30?"✓ ":"")+"手ごわい冒険"}],
-    onOk:index=>{closeMenu();dungeonDepth=index===1?30:10;try{localStorage.setItem("dungeon-depth",String(dungeonDepth));}catch(e){}controlsState="";if(previous!=="title")log(`次の冒険は「${dungeonDepth===10?"気軽な冒険":"手ごわい冒険"}」。`);}});
+    onOk:index=>{dungeonDepth=index===1?30:10;try{localStorage.setItem("dungeon-depth",String(dungeonDepth));}catch(e){}closeMenu();controlsState="";start(who);}});
 }
 const ICON_URL = {};
 const iconURL = k => ICON_URL[k] || (ICON_URL[k] = IMG[k] ? IMG[k].toDataURL() : "");
@@ -3301,9 +3341,9 @@ function pageArrows(key, page) {
 function changeMenuPage(key, step) {
   let cursor, count;
   if (key === "menu" && state === "menu") { cursor = pm; count = pm.rows().length; }
-  else if (state === "inv" && key === "inventory") { cursor = menu; count = rows().length; }
+  else if (state === "inv" && key === "inventory") { cursor = menu; count = menu.pot?.selecting ? potSelectItems().length : rows().length; }
   else if (state === "inv" && key === "options" && menu.sub) { cursor = menu.sub; count = menu.sub.opts.length; }
-  else if (state === "inv" && key === "pot" && menu.pot) { cursor = menu.pot; count = menu.pot.o.contents.length; }
+  else if (state === "inv" && key === "pot" && menu.pot) { cursor = menu.pot.selecting ? menu : menu.pot; count = menu.pot.selecting ? potSelectItems().length : menu.pot.o.contents.length; }
   if (!cursor) return;
   const limit = key === "menu" ? Math.min(pm.vis, menuRowLimit()) : menuRowLimit(), page = pageWindow(cursor.cur, count, limit);
   cursor.cur = Math.max(0, Math.min(page.pages - 1, page.page + step)) * limit;
@@ -3365,7 +3405,7 @@ function openNaming(o) {
     if (e.key === "Enter" || e.key === "Escape") { state = "inv"; menu.sub = null; renderInv(); }
   });
 }
-function askStairs() { ask("階段がある。降りますか？", descend, () => log("階段を降りるのをやめた。「足元」からもう一度選べる。")); }
+function askStairs() { if(debug){returnToTitle();return;} ask("階段がある。降りますか？", descend, () => log("階段を降りるのをやめた。「足元」からもう一度選べる。")); }
 /** 操作の一覧の窓を開く（H キー）。いまのキー割り当てで出す。 */
 function openHelp() {
   if (pointerHelp()) {
@@ -3375,7 +3415,7 @@ function openHelp() {
       { label: "道具：持ち物を開く。行をタップして操作を選択" },
       { label: "足元：床の道具を拾う・使う・交換する" },
       { label: "戻る：メニューや地図を閉じる" },
-      { label: "その他：特技・矢・階段・休む・振り向く・移動モード" },
+      { label: "行動：特技・矢・階段・休む・振り向く" },
       { label: "メニュー：地図・履歴・音・操作説明" }
     ], noCursor: true, wide: true, vis: 7, hint: "攻撃 / 決定 または 戻るで閉じる" }); return;
   }
@@ -3410,6 +3450,7 @@ function swapGround(carried) {
   return true;
 }
 const feetTrap = () => traps.find(t => t.x === player.x && t.y === player.y && t.seen);
+const potSelectItems = () => player.inv.filter(o => ITEMS[o.kind]?.cat !== "壺" && !o.contents && ![player.weapon,player.shield,player.arrow,player.ring].includes(o));
 function feetLabel() {
   const it = feetItem(); if (it) return itemName(it);
   if (onStairs()) return "下り階段";
@@ -3452,7 +3493,7 @@ function itemOptions(o, idx, ground = false) {
   if (D.cat === "矢" || o.kind === "ar_stone") {
     opts.push({ label: "撃つ", run: () => { claimGround(o); shootArrow(o); return true; } });
     const on = player.arrow === o;
-    opts.push({ label: on ? "外す" : "装備", run: () => { player.arrow = on ? null : o; log(on ? `${D.name}を外した。` : `${D.name}を装備した。${inputHint("F キーで撃てる。", "「その他」の「矢」で撃てる。")}`); return false; } });
+    opts.push({ label: on ? "外す" : "装備", run: () => { player.arrow = on ? null : o; log(on ? `${D.name}を外した。` : `${D.name}を装備した。${inputHint("F キーで撃てる。", "「行動」の「矢」で撃てる。")}`); return false; } });
   }
   if (D.cat === "腕輪") {
     const on = player.ring === o;
@@ -3470,7 +3511,8 @@ function itemOptions(o, idx, ground = false) {
       return true; } });
   }
   if(o.kind==="pot_heal")opts.push({label:"押す",run:()=>{if((o.charges??3)<=0){log("壺はもう空っぽだ。");return false;}if(player.hp>=player.maxhp){log("HPは満タンだ。");return false;}claimGround(o);o.charges=(o.charges??3)-1;player.hp=player.maxhp;log("回復の壺を押した。HPが全回復した！");fxSeq(()=>{sfx("heal");rise(player,"#80ffad",20);ring(player,"#80ffad",1.4,450);},300);return true;}});
-  if (o.contents&&(o.kind!=="pot_heal"||o.contents.length)) opts.push({ label: "のぞく", run: () => { menu.pot = { o, cur: 0 }; menu.sub = null; renderInv(); return false; } });
+  if (o.contents && o.kind !== "pot_heal" && contentPotFree(o) > 0) opts.push({ label: "道具を入れる", run: () => { menu.pot = { o, cur: 0, selecting: true }; menu.sub = null; menu.cur = 0; renderInv(); return false; } });
+  if (o.contents&&(o.kind!=="pot_heal"||o.contents.length)) opts.push({ label: "のぞく", run: () => { menu.pot = { o, cur: 0, selecting: false }; menu.sub = null; renderInv(); return false; } });
   const equipped = o === player.weapon || o === player.shield || o === player.ring;
   if (!ground && feetItem()) opts.push({ label: "足元と交換", run: () => { if (!swapGround(o)) return false; return true; } });
   if (D.cat !== "矢" && o.kind !== "ar_stone") opts.push({ label: "投げる", off: equipped, run: () => {
@@ -3500,15 +3542,16 @@ function itemOptions(o, idx, ground = false) {
 function showInv() { state = "inv"; menu = { cur: 0, sub: null, desc: null, pot: null, swap: null }; invEl.style.display = "flex"; renderInv(); }
 function hideInv() { invEl.style.display = "none"; state = "play"; menu = null; }
 function renderInv() {
-  const rs = rows();
+  const rs = menu.pot?.selecting ? potSelectItems().map((o,i)=>({o,i})) : rows();
   const limit = menuRowLimit();
   menu.cur = Math.min(menu.cur, Math.max(0, rs.length - 1));
   const ic = o => iconMarkup("item_" + iconOf(o.kind), "ic")+(o.cursed?'<span role="img" aria-label="呪い" title="呪い">☠</span> ':'');
+  const fusedMark = o => o?.fused ? '<span class="fused-mark" role="img" aria-label="合成済み" title="合成済み">★</span>' : '';
   const inventoryPage = pageWindow(menu.cur, rs.length, limit);
-  const list = rs.length ? rs.slice(inventoryPage.start, inventoryPage.end).map((r, index) => { const i = inventoryPage.start + index; return `<div data-index="${i}" class="row${i === menu.cur ? " sel" : ""}">${r.feet ? `【${feetItem() && feetItem().shop ? "商品" : "足元"}】${feetLabel()}` : ic(r.o) + itemName(r.o)}</div>`; }).join("")
+  const list = rs.length ? rs.slice(inventoryPage.start, inventoryPage.end).map((r, index) => { const i = inventoryPage.start + index; return `<div data-index="${i}" class="row${i === menu.cur ? " sel" : ""}">${r.feet ? `【${feetItem() && feetItem().shop ? "商品" : "足元"}】${feetLabel()}` : ic(r.o) + itemName(r.o) + fusedMark(r.o)}</div>`; }).join("")
                          : `<div class="row dim">なにも持っていない</div>`;
-  const title = menu.swap ? `交換する道具を選ぶ` : `持ち物 ${player.inv.length}/${MAX_INVENTORY}　<span class="dim">${inputHint("Tab: 整理", "整理ボタンで並べ替え")}</span>`;
-  let html = `<div class="win" data-pane="inventory" data-inactive="${!!(menu.sub || menu.pot)}"><h3>${title}</h3><div class="menu-list">${list}</div>${pageArrows("inventory", inventoryPage)}</div>`;
+  const title = menu.pot?.selecting ? `${itemName(menu.pot.o)}に入れる道具を選ぶ` : menu.swap ? `交換する道具を選ぶ` : `持ち物 ${player.inv.length}/${MAX_INVENTORY}　<span class="dim">${inputHint("Tab: 整理", "整理ボタンで並べ替え")}</span>`;
+  let html = `<div class="win" data-pane="inventory" data-inactive="${!!(menu.sub || (menu.pot && !menu.pot.selecting))}"><h3>${title}</h3><div class="menu-list">${list}</div>${pageArrows("inventory", inventoryPage)}${menu.pot?.selecting?'<div class="menu-pager"><button type="button" data-pot-cancel>壺へ戻る</button></div>':''}</div>`;
   if (menu.sub) {
     const optionsPage = pageWindow(menu.sub.cur, menu.sub.opts.length, limit);
     const selected = rs[menu.cur], selectedName = selected ? selected.feet ? feetLabel() : itemName(selected.o) : "道具";
@@ -3518,13 +3561,13 @@ function renderInv() {
     }).join("")}</div>${pageArrows("options", optionsPage)}</div>`;
   }
   if (menu.pot) {
-    const c = menu.pot.o.contents;
+    const c = menu.pot.selecting ? [] : menu.pot.o.contents;
     const potPage = pageWindow(menu.pot.cur, c.length, limit);
-    const potHint = menu.pot.o.kind === "pot" ? inputHint("Z で出す", "道具をタップで取り出す") : "中身を出すには投げて割る";
-    html += `<div class="win" data-pane="pot"><h3>${itemName(menu.pot.o)} の中（${potHint}）</h3><div class="menu-list">${c.length ? c.slice(potPage.start, potPage.end).map((o, index) => {
+    const potHint = menu.pot.selecting ? "持ち物から道具を選んでください" : menu.pot.o.kind === "pot" ? inputHint("Z で出す", "道具をタップで取り出す") : "中身を出すには投げて割る";
+    html += `<div class="win" data-pane="pot" data-inactive="${!!menu.pot.selecting}"><h3>${itemName(menu.pot.o)} の中（${potHint}）</h3><div class="menu-list">${c.length ? c.slice(potPage.start, potPage.end).map((o, index) => {
       const i = potPage.start + index;
-      return `<div data-index="${i}" class="row${i === menu.pot.cur ? " sel" : ""}">${ic(o)}${itemName(o)}</div>`;
-    }).join("") : `<div class="row dim">からっぽ</div>`}</div>${pageArrows("pot", potPage)}</div>`;
+      return `<div data-index="${i}" class="row${i === menu.pot.cur ? " sel" : ""}">${ic(o)}${itemName(o)}${fusedMark(o)}</div>`;
+    }).join("") : `<div class="row dim">${menu.pot.selecting?"":"からっぽ"}</div>`}</div>${menu.pot.selecting?'<button type="button" data-pot-cancel>壺へ戻る</button>':`${pageArrows("pot", potPage)}${contentPotFree(menu.pot.o)>0?'<button type="button" data-pot-input>道具を入れる</button>':''}`}</div>`;
   }
   if (menu.desc) html += `<div class="win desc">${menu.desc}</div>`;
   else { const d = peekDesc(rs); if (d) html += `<div class="win desc peek"><h3>${d.title}</h3>${d.text}</div>`; }
@@ -3539,7 +3582,7 @@ const unknownText = "まだ正体が分からない。使ってみるか、見�
  */
 function peekDesc(rs) {
   const ofItem = o => {const D=ITEMS[o.kind];let text=known.has(o.kind)?D.desc:unknownText;if(known.has(o.kind)&&o.plus&&["武器","盾"].includes(D.cat)){const base=D.cat==="武器"?D.atk:D.def;text+=`<br>${D.cat==="武器"?"攻撃力":"防御力"} ${base}（${o.plus>0?"＋":"−"}${Math.abs(o.plus)}）＝${base+o.plus}`;}return {title:itemName(o),text};};
-  if (menu.pot) { const c = menu.pot.o.contents; return c.length ? ofItem(c[Math.min(menu.pot.cur, c.length - 1)]) : null; }
+  if (menu.pot) { if(menu.pot.selecting){const candidates=potSelectItems();return candidates.length?ofItem(candidates[Math.min(menu.cur,candidates.length-1)]):null;}const c = menu.pot.o.contents; return c.length ? ofItem(c[Math.min(menu.pot.cur, c.length - 1)]) : null; }
   const r = rs[menu.cur]; if (!r) return null;
   if (!r.feet) return ofItem(r.o);
   const it = feetItem(); if (it) return ofItem(it);
@@ -3561,6 +3604,20 @@ function invKey(e) {
     renderInv(); return; }
   if (menu.desc) { if (ok || back) { menu.desc = null; renderInv(); } return; }
   if (menu.pot) {
+    if(menu.pot.selecting){
+      const candidates=potSelectItems();
+      if(back){menu.pot.selecting=false;menu.cur=0;renderInv();return;}
+      if(candidates.length&&up)menu.cur=(menu.cur+candidates.length-1)%candidates.length;
+      if(candidates.length&&down)menu.cur=(menu.cur+1)%candidates.length;
+      if(ok&&candidates.length){
+        if(contentPotFree(menu.pot.o)<=0){log("壺に空きがない。");menu.pot.selecting=false;renderInv();return;}
+        const item=candidates[menu.cur],pot=menu.pot.o;claimGround(item);player.inv.splice(player.inv.indexOf(item),1);contentPutInPot(pot,item);
+        log(`${itemName(item)}を${itemName(pot)}に入れた。`);
+        if(pot.kind==="pot_ident"&&!known.has(item.kind)){known.add(item.kind);log(`それは${ITEMS[item.kind].name}だった。`);}
+        hideInv();endTurn();return;
+      }
+      renderInv();return;
+    }
     const c = menu.pot.o.contents;
     if (back) { menu.pot = null; renderInv(); return; }
     if (c.length && up) menu.pot.cur = (menu.pot.cur + c.length - 1) % c.length;
@@ -3805,7 +3862,7 @@ document.addEventListener("keydown", e => {
     if(who)chooseHero(who);
     else if((key==="Enter"||key===" ")&&e.target?.tagName!=="BUTTON"){e.preventDefault();chooseHero(titleFocus);}
     if(low==="c")loadGame();if(low==="k"){state="keys";keycfg={cur:0,wait:false};}
-    if(low==="d")dbgPick=!dbgPick;return;
+    return;
   }
   if (low === "r") { if ((state === "dead" || state === "clear") && !busy()) returnToTitle(); return; }
   if (state === "dead" || state === "clear") return;
@@ -3931,14 +3988,10 @@ cv.addEventListener("click", e => {
 });
 /**
  * タイトル画面で主人公を選んだとき（1・2 キーかクリック）に呼ぶ。
- * つづきの記録があるときは、同じ主人公をもう一度選んで初めて新しく始める（うっかり記録を消さないように）。
+ * 主人公を選ぶと難易度メニューを開く。記録がある場合は新しい冒険を始めると上書きする。
  * @param {"viking"|"ranger"} who 選んだ主人公
  */
-function chooseHero(who) {
-  focusTitleHero(who);
-  if (readSave() && titleConfirm !== who) { titleConfirm = who; return; }
-  titleConfirm = null; start(who);
-}
+function chooseHero(who) { focusTitleHero(who); titleConfirm=null; openDifficulty(who); }
 // 毎フレーム、演出を進めて描き直す
 function loop(now) {
   if (state !== "title" && state !== "keys") runQueue(now);
@@ -4270,7 +4323,6 @@ function settle(e) {
  */
 function loadGame() {
   const d = readSave(); if (!d) return false;
-  const wasShuffleSave = ["forest", "snowfield", "marsh", "ashfield"].includes(d.theme);
   levelEffects=[];
   LAST_FLOOR=[10,30,99].includes(d.depth)?d.depth:10;
   floorEvents=d.floorEvents||{shopAt:4,houseAt:6,shopMade:false,houseMade:false};
@@ -4291,9 +4343,7 @@ function loadGame() {
   debug = false; THEME = THEMES[contentProductionTheme(d.theme)] || THEMES.cave; floorSeed = d.seed; buildTextures(floorSeed); prewarmWater();
   queue = []; cur = null; moves = []; hits = []; corpses = []; popups = []; slashes = []; particles = []; rings = []; bolts = []; lineFxs = []; puffs = [];
   impacts = []; pillars = []; banners = []; flying = null; pendingCmd = null; dash = null; resting = null;
-  state = "play";
-  if (wasShuffleSave) { contentObjects=[]; contentBombs=[]; newFloor(); log("前回の記録から通常の地形で再開した。"); return true; }
-  updateSeen(); showFloorCard(); log("前回のつづきから始めた。");
+  state = "play"; updateSeen(); showFloorCard(); log("前回のつづきから始めた。");
   return true;
 }
 
@@ -4317,6 +4367,7 @@ function recordResult(cleared) {
 </script>
 <script>
 const pad = document.getElementById("pad"), actions = document.getElementById("actions");
+document.getElementById("controls").addEventListener("contextmenu", event => event.preventDefault());
 document.addEventListener("pointerdown", () => { document.documentElement.dataset.input = "pointer";heardKey=true;unlockAudio(); }, { passive:true });
 document.addEventListener("keydown", event => {
   if (event.isTrusted && !["Shift", "Control", "Alt", "Meta"].includes(event.key)) {document.documentElement.dataset.input = "keyboard";unlockAudio();}
@@ -4417,8 +4468,7 @@ backButton.classList.add("primary");
 const heroButtons = ["viking", "ranger"].map(who => addControl(actions, NAME_OF[who] + "で始める", () => { if (state === "title") chooseHero(who); }));
 heroButtons.forEach((button,index)=>{for(const event of ["focus","pointerenter"])button.addEventListener(event,()=>{if(state==="title")focusTitleHero(index===0?"viking":"ranger");});});
 const manualButton = addControl(actions, "取扱説明書", () => { if (state === "title") window.location.href = "./dungeon-manual.html"; });
-const titleDebugButton = addControl(actions, "デバッグ OFF", () => { if (state === "title") dbgPick = !dbgPick; });
-const difficultyButton=addControl(actions,"難易度設定",()=>{if(state === "title")openDifficulty();});
+const titleDebugButton = addControl(actions, "デバッグルームへ", () => { if (state === "title") { dbgPick = true; start(titleFocus); } });
 const keySettingsButton = addControl(actions, "キー設定", () => { if (state === "title") { state = "keys"; keycfg = { cur:0, wait:false }; } });
 const resumeButton = addControl(actions, "つづきから", () => { if (state === "title") loadGame(); });
 const sortButton = addControl(actions, "整理", () => { if (state === "inv") pressKey("Tab"); });
@@ -4431,23 +4481,30 @@ function controlGroup(label) {
   });
   return options;
 }
-const extraControls = controlGroup("その他");
+const extraControls = controlGroup("行動");
 [["特技", "skill"], ["矢", "shoot"], ["階段", "stairs"], ["休む", "rest"], ["振り向く", "face"]].forEach(([label, type]) => addControl(extraControls, label, () => {
   extraControls.parentElement.open = false;
   pointerCommand({ type });
 }));
-const modeButton = addControl(extraControls, "移動: 通常", () => {
+const menuControls = controlGroup("メニュー");
+const menuHeading = label => { const heading=document.createElement("span");heading.className="control-heading";heading.textContent=label;menuControls.appendChild(heading); };
+menuHeading("表示");
+[["見渡す", "look"], ["地図", "map"], ["履歴", "log"]].forEach(([label, type]) => addControl(menuControls, label, () => {
+  menuControls.parentElement.open = false;
+  pointerCommand({ type });
+}));
+menuHeading("操作・設定");
+const modeButton = addControl(menuControls, "移動方式: 通常", () => {
   const modes = ["move", "turn", "dash", "nopick"];
   pointerMode = modes[(modes.indexOf(pointerMode) + 1) % modes.length];
-  modeButton.textContent = "移動: " + ({move:"通常", turn:"向きだけ", dash:"ダッシュ", nopick:"拾わない"})[pointerMode];
+  modeButton.textContent = "移動方式: " + ({move:"通常", turn:"向きだけ", dash:"ダッシュ", nopick:"拾わない"})[pointerMode];
 });
-const menuControls = controlGroup("メニュー");
-addControl(menuControls,"難易度設定",()=>{if(state === "play"&&!busy()){menuControls.parentElement.open=false;openDifficulty();}});
-[["見渡す", "look"], ["地図", "map"], ["履歴", "log"], ["音", "sound"], ["操作説明", "help"]].forEach(([label, type]) => addControl(menuControls, label, () => {
+[["音", "sound"], ["操作説明", "help"]].forEach(([label, type]) => addControl(menuControls, label, () => {
   menuControls.parentElement.open = false;
   pointerCommand({ type });
 }));
 const gameDebugButton = addControl(menuControls, "デバッグ操作", () => { if (state === "play" && debug && !busy()) openDebug(); });
+menuHeading("終了");
 const returnButton = addControl(menuControls, "タイトルへ戻る", () => {
   if (state !== "play" || busy()) return;
   ask(debug ? "デバッグを終えてタイトルへ戻りますか？" : "冒険を保存してタイトルへ戻りますか？", returnToTitle, () => {});
@@ -4476,7 +4533,7 @@ function updateControlVisibility() {
     const isTitle = state === "title", titleLayout=isTitle||(state==="menu"&&pm?.returnState==="title"), isResult = state === "dead" || state === "clear";
     const isMenu = ["menu", "inv", "naming", "keys"].includes(state);
     const controls = document.getElementById("controls");
-    controls.dataset.screen = titleLayout ? "title" : isResult ? "result" : "play";
+    controls.dataset.screen = titleLayout ? "title" : state === "keys" ? "keys" : isResult ? "result" : "play";
     document.getElementById("wrap").dataset.screen = controls.dataset.screen;
     pad.hidden = titleLayout || isResult || state === "naming";
     primaryButtons.attack.hidden = titleLayout || isResult || state === "map";
@@ -4484,24 +4541,23 @@ function updateControlVisibility() {
     primaryButtons.inv.hidden = state !== "play";
     feetButton.hidden = state !== "play";
     backButton.hidden = isTitle || state === "play";
-    backButton.textContent = isResult ? "タイトルへ戻る" : "戻る";
+    backButton.textContent = isResult || state === "keys" ? "タイトルへ戻る" : "戻る";
     heroButtons.forEach((button, index) => {
       const who = index === 0 ? "viking" : "ranger";
       button.hidden = !isTitle;
       if(titleFocus===who)button.classList.add("primary");else button.classList.remove("primary");
-      button.textContent = NAME_OF[who] + (titleConfirm === who ? "で上書きして開始" : "で始める");
+      button.textContent = NAME_OF[who] + "で始める";
     });
     manualButton.hidden = !isTitle;
     titleDebugButton.hidden = !isTitle;
-    difficultyButton.hidden = !isTitle;difficultyButton.textContent=`難易度設定：${dungeonDepth===10?"気軽な冒険":"手ごわい冒険"}`;
-    titleDebugButton.textContent = "デバッグ " + (dbgPick ? "ON" : "OFF");
-    titleDebugButton.setAttribute("aria-pressed", String(dbgPick));
+    titleDebugButton.textContent = "デバッグルームへ";
+    titleDebugButton.removeAttribute("aria-pressed");
     keySettingsButton.hidden = !isTitle || pointerHelp();
     resumeButton.hidden = state !== "title" || !readSave();
     sortButton.hidden = state !== "inv";
     gameDebugButton.hidden = !debug;
     debugTools.hidden = !(state === "menu" && pm && pm.onSide && debug);
-    document.getElementById("controlHint").textContent = heroAssetError ? "キャラ画像の読み込みに失敗しました。再読み込みしてください。" : isTitle ? "キャラを選んで開始。保存した冒険は「つづきから」。" : isResult ? "冒険終了。「タイトルへ戻る」で次の冒険を始められます。" : state === "map" ? "全体マップを表示中。「戻る」で冒険へ。" : state === "look" ? "見渡し中。方向ボタンで視点を動かし、「戻る」で冒険へ。" : isMenu ? "行をタップするか、方向ボタンで選んで「決定」。「戻る」で閉じます。" : "方向は長押しで連続移動。特技・矢は「その他」、保存して終了は「メニュー」。";
+    document.getElementById("controlHint").textContent = heroAssetError ? "キャラ画像の読み込みに失敗しました。再読み込みしてください。" : state === "keys" ? "方向で操作を選択。決定で変更し、新しいキーを押します。戻るでタイトルへ。" : isTitle ? "主人公を選ぶと冒険の深さを選べます。保存した冒険は「つづきから」。" : isResult ? "冒険終了。「タイトルへ戻る」で次の冒険を始められます。" : state === "map" ? "全体マップを表示中。「戻る」で冒険へ。" : state === "look" ? "見渡し中。方向ボタンで視点を動かし、「戻る」で冒険へ。" : isMenu ? "行をタップするか、方向ボタンで選んで「決定」。「戻る」で閉じます。" : "方向は長押しで連続移動。特技・矢は「行動」、確認や設定は「メニュー」。";
     for (const group of actions.querySelectorAll("details")) {
       group.open = false;
       group.hidden = state !== "play";
@@ -4522,6 +4578,8 @@ window.addEventListener("resize", fitGameSurface);
 fitGameSurface();
 invEl.addEventListener("click", event => {
   if (event.target.closest("[data-inventory-sort]")) { if(state === "inv" && !menu.sub && !menu.pot)pressKey("Tab"); return; }
+  if (event.target.closest("[data-pot-input]")) { if(menu.pot&&contentPotFree(menu.pot.o)>0){menu.pot.selecting=true;menu.cur=0;renderInv();} return; }
+  if (event.target.closest("[data-pot-cancel]")) { if(menu.pot){menu.pot.selecting=false;menu.cur=0;renderInv();} return; }
   if (event.target.closest("[data-menu-back]")) { pressKey("Escape"); return; }
   if (event.target.closest("[data-name-save]")) { pressKey("Enter"); return; }
   const arrow = event.target.closest("button[data-page]");
@@ -4535,7 +4593,7 @@ invEl.addEventListener("click", event => {
     if (pm.noCursor) return;
     pm.cur = index;
   } else if (menu.desc) { pressKey("Enter"); return; }
-  else if (menu.pot) { if (pane.dataset.pane !== "pot") return; menu.pot.cur = index; }
+  else if (menu.pot) { if(menu.pot.selecting){if(pane.dataset.pane!=="inventory")return;menu.cur=index;}else{if (pane.dataset.pane !== "pot") return; menu.pot.cur = index;} }
   else if (menu.sub) { if (pane.dataset.pane !== "options") return; menu.sub.cur = index; }
   else { if (pane.dataset.pane !== "inventory") return; menu.cur = index; }
   pressKey("Enter");

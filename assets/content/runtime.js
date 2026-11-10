@@ -2,7 +2,7 @@ const contentSources=new Map(),contentFrames=new Map();
 let contentObjects=[],contentBombs=[],contentCutIn=null;
 let contentFlames=[];
 function contentProductionTheme(theme){return ({forest:'jungle',snowfield:'snow',marsh:'lake',ashfield:'volcano'})[theme]||theme;}
-function contentSource(file){let entry=contentSources.get(file);if(!entry){const image=new Image();entry={image,ready:false};contentSources.set(file,entry);image.onload=()=>{entry.ready=true;};image.src=file;}return entry;}
+function contentSource(file){let entry=contentSources.get(file);if(!entry){const image=new Image();entry={image,ready:false,failed:false};contentSources.set(file,entry);image.onload=()=>{entry.ready=true;};image.onerror=()=>{entry.failed=true;};image.src=file;}return entry;}
 function contentFrame(key){const meta=GAME_CONTENT.extra[key];if(!meta)return null;if(contentFrames.has(key))return contentFrames.get(key);const source=contentSource(meta.file);if(!source.ready)return null;const frame=artCell(source.image,meta.rect);contentFrames.set(key,frame);return frame;}
 function contentTheme(f){
  if(LAST_FLOOR===99){const plan=floorEvents.skinPlan||(floorEvents.skinPlan=[]),keys=Object.keys(GAME_CONTENT.themes);for(let i=plan.length;i<=Math.floor((f-1)/5);i++){const choices=keys.filter(key=>key!==plan[i-1]);plan.push(choices[Math.floor(R()*choices.length)]);}return contentProductionTheme(plan[Math.floor((f-1)/5)]);}
@@ -82,6 +82,8 @@ function contentAttackDamage(monster,damage){
  return damage;
 }
 function initializeContent(){
+ const hedgehog=GAME_CONTENT.monsters.hari;if(hedgehog){const first=hedgehog.stats?.[0];Object.assign(hedgehog,{hp:14,atk:3,def:1,exp:8});if(first)Object.assign(first,{hp:14,atk:3,def:1,exp:8});}
+ for(const depth of [30,99])for(const hero of ['viking','ranger']){const rows=GAME_CONTENT.tables[depth]?.[hero]||[];for(let index=0;index<Math.min(2,rows.length);index++)rows[index].entries=rows[index].entries.filter(entry=>entry.kind!=='hari');const third=rows[2]?.entries.find(entry=>entry.kind==='hari');if(third)third.weight=5;}
  Object.assign(MON,GAME_CONTENT.monsters);Object.assign(TIERS,GAME_CONTENT.tiers);Object.assign(THEMES,GAME_CONTENT.themes);Object.assign(ITEMS,GAME_CONTENT.items);CAT_ICON['木札']='woodtag';PRICE_BY_CAT['木札']=250;
  ITEMS.ar_stone.cat='石';CAT_ICON['石']='stone';if(!CAT_ORDER.includes('石'))CAT_ORDER.splice(CAT_ORDER.indexOf('草'),0,'石');
  if(!CAT_ORDER.includes('木札'))CAT_ORDER.push('木札');
