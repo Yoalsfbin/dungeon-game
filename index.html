@@ -4416,6 +4416,7 @@ const backButton = addControl(actions, "戻る", () => {
 backButton.classList.add("primary");
 const heroButtons = ["viking", "ranger"].map(who => addControl(actions, NAME_OF[who] + "で始める", () => { if (state === "title") chooseHero(who); }));
 heroButtons.forEach((button,index)=>{for(const event of ["focus","pointerenter"])button.addEventListener(event,()=>{if(state==="title")focusTitleHero(index===0?"viking":"ranger");});});
+const manualButton = addControl(actions, "取扱説明書", () => { if (state === "title") window.location.href = "./dungeon-manual.html"; });
 const titleDebugButton = addControl(actions, "デバッグ OFF", () => { if (state === "title") dbgPick = !dbgPick; });
 const difficultyButton=addControl(actions,"難易度設定",()=>{if(state === "title")openDifficulty();});
 const keySettingsButton = addControl(actions, "キー設定", () => { if (state === "title") { state = "keys"; keycfg = { cur:0, wait:false }; } });
@@ -4490,6 +4491,7 @@ function updateControlVisibility() {
       if(titleFocus===who)button.classList.add("primary");else button.classList.remove("primary");
       button.textContent = NAME_OF[who] + (titleConfirm === who ? "で上書きして開始" : "で始める");
     });
+    manualButton.hidden = !isTitle;
     titleDebugButton.hidden = !isTitle;
     difficultyButton.hidden = !isTitle;difficultyButton.textContent=`難易度設定：${dungeonDepth===10?"気軽な冒険":"手ごわい冒険"}`;
     titleDebugButton.textContent = "デバッグ " + (dbgPick ? "ON" : "OFF");

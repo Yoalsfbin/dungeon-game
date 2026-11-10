@@ -47,10 +47,6 @@ function enemyMotionFrame(entity, kind, now, loadedSource=null) {
   }
   const metadata=WORLD_MOTION_META[kind],frameIndex=row*8+column,rectangle=metadata.frames[frameIndex];
   let [left, top, width, height, anchorX, anchorY] = rectangle;
-  // 鏡の斜め前・横向きは隣のコマの残像を輪郭検出が拾っていたため、
-  // 元シート上の各個体を目視確認した範囲で独立して切り出す。
-  if(kind==="kagami"&&column===1){left=205;width=130;anchorX=270;}
-  if(kind==="kagami"&&column===2){left=355;width=140;anchorX=430;}
   const frameLimit = 148, spriteLimit = kind === "kagami" ? 112 : 106;
   const scale = Math.min(spriteLimit / metadata.size,frameLimit/width,frameLimit/height);
   const canvas = document.createElement("canvas"); canvas.width = canvas.height = 160;
