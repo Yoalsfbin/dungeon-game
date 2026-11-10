@@ -1,5 +1,13 @@
 const worldArt = { monsters:new Map(), motionKinds:new Set(), icons:new Map(), mechanisms:new Map(), items:null, terrain:null,surfaces:null };
 const enemyMotionSources = new Map(), enemyMotionFrames = new Map();
+// カガミガの横向きコマは隣のセルへはみ出す透明境界を含むため、
+// アルファ領域から本体だけを切り出した範囲を使う（行は動作、列は方向）。
+const KAGAMI_FRAME_BOUNDS = [
+  [[214,23,99,131],[362,23,107,128]],[[212,179,101,132],[362,178,108,127]],
+  [[215,334,98,128],[361,333,108,126]],[[214,491,99,127],[362,486,104,129]],
+  [[205,637,108,120],[350,638,117,118]],[[212,783,101,112],[358,783,111,109]],
+  [[210,940,103,121],[355,940,107,120]],[[203,1102,110,114],[350,1109,118,104]]
+];
 function ensureEnemyMotion(kind) {
   if (!WORLD_MOTION_META[kind]) return null;
   if (enemyMotionSources.has(kind)) {
@@ -47,6 +55,9 @@ function enemyMotionFrame(entity, kind, now, loadedSource=null) {
   }
   const metadata=WORLD_MOTION_META[kind],frameIndex=row*8+column,rectangle=metadata.frames[frameIndex];
   let [left, top, width, height, anchorX, anchorY] = rectangle;
+  if(kind==="kagami"&&(column===1||column===2)){
+    [left,top,width,height]=KAGAMI_FRAME_BOUNDS[row][column-1];
+  }
   const frameLimit = 148, spriteLimit = kind === "kagami" ? 112 : 106;
   const scale = Math.min(spriteLimit / metadata.size,frameLimit/width,frameLimit/height);
   const canvas = document.createElement("canvas"); canvas.width = canvas.height = 160;
