@@ -26,20 +26,21 @@ function installContentArt(){
  const originalDraw=draw;draw=function(now=NOW()){
   originalDraw(now);if(!contentCutIn||state==='title')return;
   const elapsed=now-contentCutIn.t0,duration=1050;if(elapsed<0)return;if(elapsed>=duration){contentCutIn=null;return;}
-  const image=heroPortraits.get(contentCutIn.character);if(!image)return;
-  const progress=Math.min(1,elapsed/150),ease=1-Math.pow(1-progress,3),fade=elapsed<810?1:Math.max(0,(duration-elapsed)/240),slide=(1-ease)*-cv.width*.72;
-  const[x,y,w,h]=HERO_PORTRAIT_RECTS[contentCutIn.character],scale=Math.min(cv.height*.7/h,cv.width*.57/w),panelW=cv.width*.61;
+  const image=window.TITLE_HERO_ART?.[contentCutIn.character];if(!image?.complete||!image.naturalWidth)return;
+  const fromRight=contentCutIn.character==='rati',progress=Math.min(1,elapsed/150),ease=1-Math.pow(1-progress,3),fade=elapsed<810?1:Math.max(0,(duration-elapsed)/240),panelW=cv.width*.61,panelX=fromRight?cv.width-panelW+(1-ease)*cv.width*.72:-(1-ease)*cv.width*.72;
+  const w=image.naturalWidth,h=image.naturalHeight,cropH=Math.round(h*(fromRight?.62:.64)),scale=Math.max(panelW*.9/w,cv.height*.94/cropH),portraitW=w*scale,portraitH=cropH*scale,portraitX=panelX+(panelW-portraitW)*(fromRight?.72:.28),portraitY=(cv.height-portraitH)*.5;
   ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=fade;
-  // Manga-style cut-in panel slams over the left side while leaving the action visible.
-  ctx.beginPath();ctx.moveTo(slide,0);ctx.lineTo(slide+panelW,0);ctx.lineTo(slide+panelW-cv.width*.1,cv.height);ctx.lineTo(slide,cv.height);ctx.closePath();
+  // ヨルンは左、ラティは右から入る。二人のテーマ色でカットインを分ける。
+  ctx.beginPath();if(fromRight){ctx.moveTo(panelX+cv.width*.1,0);ctx.lineTo(panelX+panelW,0);ctx.lineTo(panelX+panelW,cv.height);ctx.lineTo(panelX,cv.height);}
+  else{ctx.moveTo(panelX,0);ctx.lineTo(panelX+panelW-cv.width*.1,0);ctx.lineTo(panelX+panelW,cv.height);ctx.lineTo(panelX,cv.height);}ctx.closePath();
   ctx.fillStyle='#101722';ctx.fill();ctx.save();ctx.clip();
-  ctx.fillStyle='#f3c650';ctx.fillRect(slide,0,panelW,cv.height);
+  ctx.fillStyle=fromRight?'#287f78':'#b57a2d';ctx.fillRect(panelX,0,panelW,cv.height);
   ctx.globalAlpha=fade*.2;ctx.strokeStyle='#fff7dc';ctx.lineWidth=2;
-  for(let i=-12;i<18;i++){const bx=slide+panelW*.48,by=cv.height*.45,ex=slide+i*cv.width*.105,ey=i%2?cv.height:-cv.height*.25;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(ex,ey);ctx.stroke();}
-  ctx.globalAlpha=fade;ctx.drawImage(image,x,y,w,h,slide+panelW*.015,cv.height*.035,w*scale,h*scale);
+  for(let i=-12;i<18;i++){const bx=panelX+panelW*(fromRight?.52:.48),by=cv.height*.45,ex=panelX+i*cv.width*.105,ey=i%2?cv.height:-cv.height*.25;ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(ex,ey);ctx.stroke();}
+  ctx.globalAlpha=fade;ctx.imageSmoothingEnabled=true;ctx.shadowColor='#0a101a';ctx.shadowBlur=cv.width*.018;ctx.drawImage(image,0,0,w,cropH,portraitX,portraitY,portraitW,portraitH);
   ctx.restore();
-  ctx.beginPath();ctx.moveTo(slide,0);ctx.lineTo(slide+panelW,0);ctx.lineTo(slide+panelW-cv.width*.1,cv.height);ctx.lineTo(slide,cv.height);ctx.closePath();
+  ctx.beginPath();if(fromRight){ctx.moveTo(panelX+cv.width*.1,0);ctx.lineTo(panelX+panelW,0);ctx.lineTo(panelX+panelW,cv.height);ctx.lineTo(panelX,cv.height);}else{ctx.moveTo(panelX,0);ctx.lineTo(panelX+panelW-cv.width*.1,0);ctx.lineTo(panelX+panelW,cv.height);ctx.lineTo(panelX,cv.height);}ctx.closePath();
   ctx.lineWidth=Math.max(7,cv.width*.012);ctx.strokeStyle='#101722';ctx.stroke();ctx.lineWidth=Math.max(3,cv.width*.005);ctx.strokeStyle='#fff4d2';ctx.stroke();
-  const label=contentCutIn.name||'特技';ctx.save();ctx.translate(slide+panelW*.52,cv.height*.88);ctx.rotate(-.045);ctx.font=`900 ${Math.max(26,cv.width*.052)}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';ctx.lineWidth=Math.max(7,cv.width*.012);ctx.strokeStyle='#18202c';ctx.strokeText(label,0,0,panelW*.82);ctx.fillStyle='#fff8dc';ctx.fillText(label,0,0,panelW*.82);ctx.restore();ctx.restore();
+  const label=contentCutIn.name||'特技';ctx.save();ctx.translate(panelX+panelW*(fromRight?.48:.52),cv.height*.88);ctx.rotate(fromRight?.045:-.045);ctx.font=`900 ${Math.max(26,cv.width*.052)}px sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';ctx.lineWidth=Math.max(7,cv.width*.012);ctx.strokeStyle='#18202c';ctx.strokeText(label,0,0,panelW*.82);ctx.fillStyle='#fff8dc';ctx.fillText(label,0,0,panelW*.82);ctx.restore();ctx.restore();
  };Object.assign(draw,originalDraw);
 }

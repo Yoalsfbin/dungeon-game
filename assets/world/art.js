@@ -1,13 +1,11 @@
 const worldArt = { monsters:new Map(), motionKinds:new Set(), icons:new Map(), mechanisms:new Map(), items:null, terrain:null,surfaces:null };
 const enemyMotionSources = new Map(), enemyMotionFrames = new Map();
-// カガミガの横向きコマは隣のセルへはみ出す透明境界を含むため、
-// アルファ領域から本体だけを切り出した範囲を使う（行は動作、列は方向）。
-const KAGAMI_FRAME_BOUNDS = [
-  [[214,23,99,131],[362,23,107,128]],[[212,179,101,132],[362,178,108,127]],
-  [[215,334,98,128],[361,333,108,126]],[[214,491,99,127],[362,486,104,129]],
-  [[205,637,108,120],[350,638,117,118]],[[212,783,101,112],[358,783,111,109]],
-  [[210,940,103,121],[355,940,107,120]],[[203,1102,110,114],[350,1109,118,104]]
-];
+const kagamiCropCache = new WeakMap();
+function kagamiFrameCrops(image, metadata) {
+  if (kagamiCropCache.has(image)) return kagamiCropCache.get(image);
+  const crops=metadata.cropFrames||metadata.frames.map(([left,top,width,height])=>[left,top,width,height]);
+  kagamiCropCache.set(image,crops);return crops;
+}
 function ensureEnemyMotion(kind) {
   if (!WORLD_MOTION_META[kind]) return null;
   if (enemyMotionSources.has(kind)) {
@@ -54,10 +52,9 @@ function enemyMotionFrame(entity, kind, now, loadedSource=null) {
     const frame = enemyMotionFrames.get(key); enemyMotionFrames.delete(key); enemyMotionFrames.set(key, frame); return frame;
   }
   const metadata=WORLD_MOTION_META[kind],frameIndex=row*8+column,rectangle=metadata.frames[frameIndex];
+  const [maskLeft,maskTop,maskWidth,maskHeight]=rectangle;
   let [left, top, width, height, anchorX, anchorY] = rectangle;
-  if(kind==="kagami"&&(column===1||column===2)){
-    [left,top,width,height]=KAGAMI_FRAME_BOUNDS[row][column-1];
-  }
+  if(kind==="kagami")[left,top,width,height]=kagamiFrameCrops(source.image,metadata)[frameIndex];
   const frameLimit = 148, spriteLimit = kind === "kagami" ? 112 : 106;
   const scale = Math.min(spriteLimit / metadata.size,frameLimit/width,frameLimit/height);
   const canvas = document.createElement("canvas"); canvas.width = canvas.height = 160;
@@ -73,7 +70,7 @@ function enemyMotionFrame(entity, kind, now, loadedSource=null) {
   if (tint) {
     const encoded=(kind==="banjin"&&entity.variant===30?metadata.bodyMasks:metadata.masks)[frameIndex];
     const runs=atob(encoded);context.save();context.beginPath();
-    for(let index=0;index<runs.length;index+=3)context.rect(horizontal+runs.charCodeAt(index)*width*scale/48,vertical+runs.charCodeAt(index+1)*height*scale/48,runs.charCodeAt(index+2)*width*scale/48,height*scale/48);
+    for(let index=0;index<runs.length;index+=3)context.rect(horizontal+(maskLeft-left+runs.charCodeAt(index)*maskWidth/48)*scale,vertical+(maskTop-top+runs.charCodeAt(index+1)*maskHeight/48)*scale,runs.charCodeAt(index+2)*maskWidth*scale/48,maskHeight*scale/48);
     context.clip();context.globalCompositeOperation = "color"; context.globalAlpha = kind==="hoshi"&&tier===2?1:tier === 1 ? 0.6 : 0.95; context.fillStyle = tint; context.fillRect(0, 0, 160, 160);context.restore();
     context.globalCompositeOperation = "destination-in";
     context.drawImage(source.image, left, top, width, height, horizontal, vertical, width * scale, height * scale);

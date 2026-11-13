@@ -23,7 +23,7 @@ function contentPutInPot(pot,item){
  log(`${ITEMS[base.kind].name}に修正値と特殊効果が合成された。`);sfx('magic');
 }
 function contentSpecial(key){return ['w_dragon','w_insect','w_purify','w_push','w_spear','w_axe','s_flame','s_insulate','s_stand','s_blast','s_spike','s_fur'].includes(key);}
-function contentEquipmentDetails(item){const definition=ITEMS[item.kind],base=definition.cat==='武器'?definition.atk:definition.def,plus=item.plus||0;return [{label:definition.cat==='武器'?'攻撃力':'防御力',desc:`${base}（${plus>=0?'＋':'−'}${Math.abs(plus)}）＝${base+plus}`},...contentEffects(item).filter(contentSpecial).map(key=>({label:ITEMS[key].name,desc:ITEMS[key].desc}))];}
+function contentEquipmentDetails(item){const definition=ITEMS[item.kind],base=definition.cat==='武器'?definition.atk:definition.def,plus=item.plus||0;return [{label:definition.cat==='武器'?'攻撃力':'防御力',desc:plus?`${base}（${plus>0?'＋':'−'}${Math.abs(plus)}）＝${base+plus}`:String(base)},...contentEffects(item).filter(contentSpecial).map(key=>({label:ITEMS[key].name,desc:ITEMS[key].desc}))];}
 function contentIncoming(amount,type){if(type==='fire'&&contentHas(player.shield,'s_flame')||type==='magic'&&contentHas(player.shield,'s_insulate')||type==='blast'&&contentHas(player.shield,'s_blast'))return Math.max(1,Math.ceil(amount/2));return amount;}
 function contentRescue(){if(!player||player.hp>0)return;const tag=player.inv.find(item=>item.kind==='tag_substitute');if(!tag)return;player.inv.splice(player.inv.indexOf(tag),1);player.hp=1;log('身代わりの木札が砕け、HP1で踏みとどまった！');fxSeq(()=>{sfx('heal');ring(player,'#fff3ba',1.5,400);},180);}
 function contentObjectAt(x,y){return contentObjects.find(o=>o.x===x&&o.y===y&&!o.broken);}
@@ -35,10 +35,18 @@ function contentDamage(source,target,amount,type='melee'){
 }
 function contentBlast(at,power,radius=1,breakWalls=false){
  const source=monsters.find(m=>m.contentId===at.ownerId&&at.ownerId)||{name:'爆発',x:at.x,y:at.y};
- fxSeq(()=>{sfx('fire');shake(260,7);ring(at,'#ffb24f',radius+.6,420);sparks(at,'#ffbd64',24,.09,.02);},220);
+ fxSeq(()=>{sfx('fire');shake(420,9);flashScreen('rgba(255,146,48,.42)',420);ring(at,'#ffb24f',radius+1,900);ring(at,'#fff0a0',radius*.65+.5,650);sparks(at,'#ffbd64',36,.13,.04);},0);
  for(const target of [player,ally,...monsters].filter(Boolean))if(target.hp>0&&dist(at,target)<=radius)contentDamage(source,target,power,'blast');
+ const roasted=[];items=items.filter(item=>{if(dist(at,item)>radius)return true;if(['rice','bigmeat','rotmeat','jerky'].includes(item.kind)){item.kind='roastmeat';roasted.push(item);return true;}return false;});
+ if(roasted.length)log(roasted.length===1?'肉が焼けて焼肉になった。':`${roasted.length}個の肉が焼けて焼肉になった。`);
  if(breakWalls)for(let y=Math.max(1,at.y-radius);y<=Math.min(MH-2,at.y+radius);y++)for(let x=Math.max(1,at.x-radius);x<=Math.min(MW-2,at.x+radius);x++)if(isWallTile(tileAt(x,y)))map[y][x]=TILE.FLOOR;
  if(breakWalls){sfx('collapse');updateSeen();}
+}
+function contentRoastLine(source,target){
+ const dx=Math.sign(target.x-source.x),dy=Math.sign(target.y-source.y);
+ if(dx&&dy&&Math.abs(target.x-source.x)!==Math.abs(target.y-source.y))return;
+ const roasted=[];for(let x=source.x+dx,y=source.y+dy;x!==target.x||y!==target.y;x+=dx,y+=dy){if(isWallTile(tileAt(x,y))||contentObjectAt(x,y))break;for(const item of items)if(item.x===x&&item.y===y&&['rice','bigmeat','rotmeat','jerky'].includes(item.kind)){item.kind='roastmeat';roasted.push(item);}}
+ if(roasted.length)log(roasted.length===1?'肉が焼けて焼肉になった。':`${roasted.length}個の肉が焼けて焼肉になった。`);
 }
 function contentHitObject(object){
  if(object.kind==='altar'){
@@ -52,7 +60,7 @@ function contentExit(){const theme=themeFor(floor);if(!THEMES[theme]?.outdoor)re
 function drawContentObjects(sx,sy,now){
  drawContentFlames(sx,sy,now);
  for(const object of contentObjects){if(object.broken||!seen[object.y]?.[object.x])continue;const image=contentFrame(({crystal:'crystal-object',rock:'explosive-rock',altar:'bonus-altar'})[object.kind]);if(!image)continue;ctx.save();ctx.globalAlpha=object.used?.45:1;ctx.drawImage(image,sx(object.x)-8,sy(object.y)-20,TS+16,TS+16);ctx.restore();}
- for(const bomb of contentBombs)if(visible(bomb.x,bomb.y)){const x=sx(bomb.x)+TS/2,y=sy(bomb.y)+TS/2;ctx.fillStyle='#1d2027';ctx.beginPath();ctx.arc(x,y,14,0,7);ctx.fill();ctx.strokeStyle='#ffb251';ctx.lineWidth=3;ctx.stroke();ctx.font='bold 22px monospace';ctx.textAlign='center';ctx.fillStyle='#fff4bc';ctx.fillText(String(bomb.remaining),x,y+7);ctx.textAlign='left';}
+ for(const bomb of contentBombs)if(visible(bomb.x,bomb.y)){const x=sx(bomb.x)+TS/2,y=sy(bomb.y)+TS/2;ctx.save();ctx.fillStyle='rgba(0,0,0,.4)';ctx.beginPath();ctx.ellipse(x,y+11,13,5,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#37251c';ctx.lineWidth=3;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x+3,y-10);ctx.quadraticCurveTo(x+13,y-22,x+15,y-13);ctx.stroke();ctx.fillStyle='#ffcf55';ctx.beginPath();ctx.arc(x+15,y-14,3+Math.sin(NOW()/90)*1.3,0,Math.PI*2);ctx.fill();ctx.fillStyle='#25232a';ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.fill();ctx.fillStyle='#51414a';ctx.beginPath();ctx.arc(x-3,y-4,5,Math.PI,Math.PI*1.8);ctx.fill();ctx.strokeStyle='#d9863e';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,12,0,Math.PI*2);ctx.stroke();ctx.font='bold 17px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineWidth=3;ctx.strokeStyle='#19171b';ctx.strokeText(String(bomb.remaining),x,y+1);ctx.fillStyle='#fff4bc';ctx.fillText(String(bomb.remaining),x,y+1);ctx.restore();}
 }
 function contentAfterTurn(){
  for(const actor of [player,ally,...monsters].filter(Boolean))if(actor.poisonT>0&&actor.poisonTurn<turn){const damage=Math.min(actor.hp-1,actor.poisonPower||1);if(damage>0){actor.hp-=damage;fxStep(()=>popup(actor,String(damage),'#badd8a'),0);}if(--actor.poisonT<=0){delete actor.poisonPower;log(`${actor.name}の毒が消えた。`);}}
@@ -92,7 +100,7 @@ function initializeContent(){
  MON.banjin.slow=false;MON.hoshi.baseFast=true;MON.mitsukoro.baseFast=true;
  for(const[kind,monster]of Object.entries(MON)){if(!TIERS[kind][0])TIERS[kind][0]={name:monster.name,abil:[],desc:monster.desc};}
  let id=70;for(const kind of Object.keys(MON).filter(kind=>!Object.values(ENEMIES).some(e=>e.kind===kind)&&!MON[kind].npc))for(const tier of [1,2,3])ENEMIES[id++]={kind,tier};
- for(const[key,item]of Object.entries(GAME_CONTENT.items))ITEM_POOL.push([key,['武器','盾','腕輪'].includes(item.cat)?2:3]);
+ for(const[key,item]of Object.entries(GAME_CONTENT.items))ITEM_POOL.push([key,key==='pot_fusion'?2:['武器','盾','腕輪'].includes(item.cat)?2:3]);
  for(const key of ['ar_wood','ar_iron','ar_stone'])ITEMS[key].desc=`基礎威力${ITEMS[key].power}に主人公の攻撃力を加える。${key==='ar_stone'?'射程5マス。':'直線上へ飛ぶ。'}手前の仲間にも当たる。`;
  for(let level=20;level<50;level++)LV_NEED.push((LV_NEED[level-1]||2200)+Math.round(550*Math.pow(1.1,level-20)));
  for(const[key,list]of Object.entries(GAME_CONTENT.learned))list.forEach((skill,index)=>SKILLS[key].push({...skill,id:`${key}-learned-${index}`}));
