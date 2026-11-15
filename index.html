@@ -1918,7 +1918,7 @@ function playerMove(dx, dy, noPick) {
     fallThroughPit(); return "fell";
   }
   if (ally && ally.x === nx && ally.y === ny && canStep(player.x, player.y, dx, dy)) {
-    if (!ally.joined && !ally.hinted) { ally.hinted = true; log(`${ally.name}がいる。こっちを向いて攻撃ボタンで話しかけよう。`); return false; }
+    if (!ally.joined && !ally.hinted) { ally.hinted = true; log(`${ally.name}がいる。こちらを向いて話しかけよう。`); return false; }
     const px = player.x, py = player.y; moveEnt(player, nx, ny); moveEnt(ally, px, py); return true;   // 仲間とは場所を入れかわる（まだ仲間でなくても、通路をふさがないように）
   }
   const kp = monsters.find(m => m.x === nx && m.y === ny && m.peaceful);
