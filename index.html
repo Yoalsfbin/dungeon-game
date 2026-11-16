@@ -10,14 +10,15 @@
   body { margin: 0; background: var(--bg); color: var(--ink); font-family: "DotGothic16", "MS Gothic", monospace; }
   #wrap { max-width: 860px; margin: 16px auto; padding: 0 16px; }
   #status { position:sticky; top:0; z-index:12; align-self:start; display:flex; flex-direction:column; gap:3px; padding:6px 10px; background:var(--panel); border:2px solid #3a2e26; font-size:15px; overflow:visible; }
-  .status-row { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-start; gap:clamp(3px,1.4vw,10px); min-width:0; }
-  .status-row .gauge { min-width:max-content; flex:0 0 auto; }
+  .status-row { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(0,.9fr) minmax(0,1.5fr) minmax(0,1.1fr); align-items:center; column-gap:8px; row-gap:3px; min-width:0; }
+  .status-row > span { min-width:0; white-space:nowrap; overflow:hidden; }
+  .status-row .gauge { min-width:0; flex:initial; gap:4px; white-space:nowrap; }
   .status-row .bar { flex:0 0 auto; min-width:24px; }
   #status b { color: var(--accent); font-weight: normal; }
   #status[data-starving="true"] { background:#641e2b; border-color:#ff8472; box-shadow:inset 0 0 18px #c345493d; color:#fff1e4; }
   #status[data-starving="true"] b { color:#fff0a8; }
   #status .sic { width: 20px; height: 20px; image-rendering: pixelated; vertical-align: -4px; margin-right: 3px; }
-  #status { align-items: center; }
+  #status { align-items: stretch; }
   .gauge { display: inline-flex; align-items: center; gap: 6px; }
   .bar { position: relative; width: 52px; height: 10px; background: #120c0a; border: 2px solid #4a3c32; }
   .bar i { position: absolute; left: 0; top: 0; bottom: 0; transition: width .2s; }
@@ -72,6 +73,7 @@
   @media (max-width:600px) {
     #wrap { margin:6px auto; padding:0 6px; }
     #status, #log { font-size:12px; padding:6px; }
+    .status-row { grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:6px; }
     #help { font-size:12px; }
     #inv { left:6px !important; top:6px !important; font-size:14px; }
     .win { min-width:0; max-width:100%; padding:6px 8px; }
@@ -3251,14 +3253,14 @@ function draw(now = performance.now()) {
   }
   const need = LV_NEED[player.lv] ?? player.exp, prev = LV_NEED[player.lv - 1] ?? 0;
   const bar = (v, max, col, width=52) => `<span class="bar" style="width:${width}px"><i style="width:${Math.max(0, Math.min(100, v / max * 100))}%;background:${col}"></i></span>`;
-  const hpBarW=Math.min(108,52+Math.max(0,player.maxhp-15)*.55);
+  const hpBarW=innerWidth<=600?44:108;
   const hpCol = player.hp / player.maxhp > 0.5 ? "#58c858" : player.hp / player.maxhp > 0.25 ? "#e8c040" : "#e05040";
   const ic = k => iconMarkup("item_" + k, "sic");          // 帯の小さな絵
   const st = `<div class="status-row"><span><b>${GAME_CONTENT.names[LAST_FLOOR]} ${floor}/${LAST_FLOOR}F</b></span>` +
     `<span class="gauge">${ic("star")}<b>${player.lv}</b>${bar(player.exp - prev, Math.max(1, need - prev), "#80a8f0")}</span>` +
     `<span class="gauge">${ic("heart")}<b>${player.hp}</b>/${player.maxhp}${bar(player.hp, player.maxhp, hpCol,hpBarW)}</span>` +
     `<span class="gauge">${ic("rice")}<b>${player.food}</b>/${player.foodMax}${bar(player.food, player.foodMax, player.food > 20 ? "#e8a050" : "#e05040")}</span></div>` +
-    `<div class="status-row"><span>力 <b>${player.str}</b>/${player.strMax}</span><span>${ic("club")}<b>${atkTotal()}</b> ${ic("buckler")}<b>${defTotal()}</b></span><span>${turn}T</span>${ally && ally.joined ? `<span style="color:#a0f0a0">${ally.name} <b>${ally.hp}</b>/${ally.maxhp}</span>` : ""}<span>${ic("coin")}<b>${player.gold}</b></span></div>`;
+    `<div class="status-row"><span>力 <b>${player.str}</b>/${player.strMax}</span><span>${ic("club")}<b>${atkTotal()}</b> ${ic("buckler")}<b>${defTotal()}</b></span><span>${turn}T</span><span>${ic("coin")}<b>${player.gold}</b></span></div>`;
   const lg = fullLog.map(s => `<div>${String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`).join("");
   document.getElementById("status").dataset.starving=String(player.food<=0);
   if (st !== draw.st) { document.getElementById("status").innerHTML = draw.st = st;paintIconCanvases(document.getElementById("status")); }
