@@ -178,6 +178,12 @@
     #inv .win[data-pane] > h3 {font-size:12px;line-height:18px;max-height:36px;}
     #inv .menu-pager button {min-height:36px;font-size:12px;padding:3px;}
   }
+  @media (max-width:600px) and (orientation:portrait) {
+    #controls[data-screen="play"] { height:clamp(140px,36dvh,280px); max-height:none; grid-template-rows:minmax(0,1fr); overflow:hidden; }
+    #controls[data-screen="play"] #controlHint { display:none; }
+    #controls[data-screen="play"] #pad { align-self:start; }
+    #controls[data-screen="play"] #actions { height:100%; max-height:100%; min-height:0; align-content:start; overflow-y:auto; overscroll-behavior:contain; padding-right:2px; }
+  }
 </style>
 </head>
 <body>
