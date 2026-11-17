@@ -201,9 +201,10 @@
     #controls[data-screen="play"] { display:grid; grid-template-columns:minmax(48px,1fr) minmax(0,auto) minmax(48px,1fr); align-items:center; gap:5px; width:100%; height:clamp(128px,22dvh,190px); max-height:none; overflow:hidden; padding:5px; margin:0; background:#17120f; border:1px solid #534438; border-radius:8px; }
     #controls[data-screen="play"] #controlHint, #controls[data-screen="play"] #actions { display:none !important; }
     #controls[data-screen="play"] .mobile-cluster { display:grid; min-width:0; height:100%; grid-auto-flow:row; align-content:center; gap:5px; }
-    #controls[data-screen="play"] #mobile-left { grid-template-columns:minmax(0,1fr); grid-template-rows:repeat(2,minmax(40px,1fr)); }
+    #controls[data-screen="play"] #mobile-left { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:repeat(3,minmax(30px,1fr)); }
+    #controls[data-screen="play"] #mobile-left .mobile-menu { grid-column:1 / -1; }
     #controls[data-screen="play"] #mobile-right { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:repeat(2,minmax(40px,1fr)); }
-    #controls[data-screen="play"] .mobile-cluster button { flex:1 1 0; min-width:0; width:100%; min-height:40px; padding:3px 2px; font-size:clamp(10px,2.8vw,13px); line-height:1.15; white-space:normal; overflow-wrap:anywhere; }
+    #controls[data-screen="play"] .mobile-cluster button { flex:1 1 0; min-width:0; width:100%; min-height:30px; padding:2px; font-size:clamp(9px,2.7vw,12px); line-height:1.1; white-space:normal; overflow-wrap:anywhere; }
     #controls[data-screen="play"] #pad { display:grid; grid-template-columns:repeat(3,clamp(34px,12.2vw,44px)); grid-template-rows:repeat(3,clamp(34px,12.2vw,44px)); justify-content:center; align-content:center; gap:2px; min-width:0; }
     #controls[data-screen="play"] #pad button { min-width:0; min-height:0; width:100%; height:100%; padding:1px; font-size:clamp(11px,3vw,14px); }
     #controls[data-screen="play"] #pad button:nth-child(5) { font-size:10px; }
@@ -218,9 +219,10 @@
     #status { position:absolute; top:max(5px,env(safe-area-inset-top)); left:max(8px,env(safe-area-inset-left)); z-index:4; width:min(440px,calc(100% - 16px)); padding:4px 8px; background:rgba(20,16,14,.74); backdrop-filter:blur(5px); }
     #log { position:absolute; z-index:4; left:8px; right:8px; bottom:122px; height:46px; min-height:0; padding:3px 8px; overflow:hidden; background:rgba(10,14,42,.74); backdrop-filter:blur(5px); font-size:11px; }
     #controls[data-screen="play"] { position:absolute; z-index:5; left:max(8px,env(safe-area-inset-left)); right:max(8px,env(safe-area-inset-right)); bottom:max(5px,env(safe-area-inset-bottom)); width:auto; height:112px; grid-template-columns:minmax(110px,1fr) minmax(132px,auto) minmax(110px,1fr); padding:3px 8px; background:rgba(18,18,24,.58); border:1px solid rgba(220,210,184,.38); border-radius:12px; backdrop-filter:blur(8px); box-shadow:0 2px 18px #0008; }
-    #controls[data-screen="play"] #mobile-left { grid-template-columns:repeat(2,minmax(44px,1fr)); grid-template-rows:minmax(44px,1fr); }
+    #controls[data-screen="play"] #mobile-left { grid-template-columns:repeat(5,minmax(38px,1fr)); grid-template-rows:minmax(44px,1fr); }
+    #controls[data-screen="play"] #mobile-left .mobile-menu { grid-column:auto; }
     #controls[data-screen="play"] #mobile-right { grid-template-columns:repeat(4,minmax(42px,1fr)); grid-template-rows:minmax(44px,1fr); }
-    #controls[data-screen="play"] .mobile-cluster button { min-height:44px; font-size:11px; background:rgba(36,29,25,.76); }
+    #controls[data-screen="play"] .mobile-cluster button { min-height:40px; font-size:10px; padding:2px; background:rgba(36,29,25,.76); }
     #controls[data-screen="play"] #pad { grid-template-columns:repeat(3,34px); grid-template-rows:repeat(3,34px); gap:1px; }
     #controls[data-screen="play"] #pad button { font-size:10px; }
     #controls[data-screen="play"] #pad button:nth-child(5) { font-size:9px; }
@@ -4633,16 +4635,21 @@ const feetButton = addControl(actions, "足元", () => {
 primaryButtons.attack.textContent="攻撃 / 話す";
 primaryButtons.attack.setAttribute("aria-label","攻撃または話す");
 mobileRight.append(primaryButtons.attack, primaryButtons.inv);
-mobileLeft.append(feetButton);
 const dashButton=addControl(mobileRight,"ダッシュ",()=>{dashArmed=!dashArmed;dashButton.setAttribute("aria-pressed",String(dashArmed));});
 dashButton.classList.add("toggle");dashButton.setAttribute("aria-pressed","false");
 dashButton.setAttribute("aria-label","ダッシュ移動の切り替え");
 const noPickButton=addControl(mobileRight,"拾わず乗る",()=>{noPickArmed=!noPickArmed;noPickButton.setAttribute("aria-pressed",String(noPickArmed));});
 noPickButton.classList.add("toggle");noPickButton.setAttribute("aria-pressed","false");
 noPickButton.setAttribute("aria-label","道具を拾わずに乗る切り替え");
+const shootButton=addControl(mobileLeft,"矢",()=>pointerCommand({type:"shoot"}));
+shootButton.setAttribute("aria-label","矢を撃つ");shootButton.title="矢を撃つ";
+const turnOnlyButton=addControl(mobileLeft,"向きだけ",()=>{pointerMode=pointerMode==="turn"?"move":"turn";turnOnlyButton.setAttribute("aria-pressed",String(pointerMode==="turn"));});
+turnOnlyButton.classList.add("toggle");turnOnlyButton.setAttribute("aria-pressed","false");turnOnlyButton.setAttribute("aria-label","方向ボタンを向きだけにする切り替え");
+const diagonalOnlyButton=addControl(mobileLeft,"斜め限定",()=>{pointerDiagonalOnly=!pointerDiagonalOnly;diagonalOnlyButton.setAttribute("aria-pressed",String(pointerDiagonalOnly));});
+diagonalOnlyButton.classList.add("toggle");diagonalOnlyButton.setAttribute("aria-pressed","false");diagonalOnlyButton.setAttribute("aria-label","斜め移動だけにする切り替え");
 const mobileMenuButton=addControl(mobileRight,"メニュー",()=>openMobileMenu());
 mobileMenuButton.classList.add("mobile-menu");
-mobileLeft.append(mobileMenuButton);
+mobileLeft.append(feetButton,shootButton,turnOnlyButton,diagonalOnlyButton,mobileMenuButton);
 const backButton = addControl(actions, "戻る", () => {
   if (state === "map") state = "play";
   else if(state==="look"){state="play";contentLookFocus=null;}
@@ -4741,7 +4748,7 @@ function returnToTitle() {
 }
 let controlsState = null;
 function updateControlVisibility() {
-  const token = [state, dbgPick, debug, titleConfirm, titleFocus, pointerMode, dashArmed, noPickArmed, !!(pm && pm.onSide), heroAssetError, pointerHelp()].join("|");
+  const token = [state, dbgPick, debug, titleConfirm, titleFocus, pointerMode, pointerDiagonalOnly, dashArmed, noPickArmed, !!(pm && pm.onSide), heroAssetError, pointerHelp()].join("|");
   if (controlsState !== token) {
     controlsState = token;
     const isTitle = state === "title", titleLayout=isTitle||(state==="menu"&&pm?.returnState==="title"), isResult = state === "dead" || state === "clear";
@@ -4752,6 +4759,8 @@ function updateControlVisibility() {
     pad.hidden = titleLayout || isResult || state === "naming";
     mobileLeft.hidden=titleLayout||isResult||state==="naming";
     mobileRight.hidden=titleLayout||isResult||state==="naming";
+    turnOnlyButton.setAttribute("aria-pressed",String(pointerMode==="turn"));
+    diagonalOnlyButton.setAttribute("aria-pressed",String(pointerDiagonalOnly));
     primaryButtons.attack.hidden = titleLayout || isResult || state === "map";
     primaryButtons.attack.textContent = state === "play" ? "攻撃 / 話す" : state === "naming" ? "名前を保存" : "決定";
     primaryButtons.inv.hidden = state !== "play";
