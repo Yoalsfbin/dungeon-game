@@ -303,25 +303,15 @@ const titleLogo = new Image(); titleLogo.src = "./assets/title/road-remembers-lo
 const titleHeroArt = {jorn:new Image(),rati:new Image()};
 titleHeroArt.jorn.src = "./assets/title/heroes/jorn.png";
 titleHeroArt.rati.src = "./assets/title/heroes/rati.png";
-const titlePairArt = {jorn:new Image(),rati:new Image()}, titleHeroMasks = {jorn:new Image(),rati:new Image()}, titlePairDim = {jorn:null,rati:null};
-titlePairArt.jorn.src = "./assets/title/heroes/cover-heroes.png";
-titlePairArt.rati.src = "./assets/title/heroes/girl-front-pair.png";
-titleHeroMasks.jorn.src = "./assets/title/masks/jorn-mask.png";
-titleHeroMasks.rati.src = "./assets/title/masks/rati-mask.png";
-function buildTitlePairDim(frontHero) {
-  const pair=titlePairArt[frontHero], otherMask=titleHeroMasks[frontHero==="jorn"?"rati":"jorn"];
-  if(!pair.complete||!pair.naturalWidth||!otherMask.complete||!otherMask.naturalWidth)return;
-  try{
-    const shade=document.createElement("canvas");shade.width=pair.naturalWidth;shade.height=pair.naturalHeight;
-    const c=shade.getContext("2d",{willReadFrequently:true});c.drawImage(pair,0,0);
-    const maskCanvas=document.createElement("canvas");maskCanvas.width=shade.width;maskCanvas.height=shade.height;
-    const m=maskCanvas.getContext("2d",{willReadFrequently:true});m.drawImage(otherMask,0,0,shade.width,shade.height);
-    const pixels=c.getImageData(0,0,shade.width,shade.height),mask=m.getImageData(0,0,shade.width,shade.height);
-    for(let i=0;i<pixels.data.length;i+=4){const amount=(mask.data[i]/255)*.56;if(amount<=0||pixels.data[i+3]===0)continue;pixels.data[i]*=1-amount;pixels.data[i+1]*=1-amount;pixels.data[i+2]*=1-amount;}
-    c.putImageData(pixels,0,0);titlePairDim[frontHero]=shade;
-  }catch(error){console.warn("タイトル人物の選択演出を簡略表示します",error);titlePairDim[frontHero]=null;}
+const titleHeroLayer={jorn:new Image(),rati:new Image()},titleHeroDim={jorn:null,rati:null};
+titleHeroLayer.jorn.src="./assets/title/heroes/jorn-layer.png";
+titleHeroLayer.rati.src="./assets/title/heroes/rati-layer.png";
+function buildTitleHeroDim(who){
+  const image=titleHeroLayer[who];if(!image.complete||!image.naturalWidth)return;
+  const layer=document.createElement("canvas");layer.width=image.naturalWidth;layer.height=image.naturalHeight;
+  const layerCtx=layer.getContext("2d");layerCtx.drawImage(image,0,0);layerCtx.globalCompositeOperation="source-atop";layerCtx.fillStyle="rgba(8,12,22,.42)";layerCtx.fillRect(0,0,layer.width,layer.height);titleHeroDim[who]=layer;
 }
-for(const frontHero of ["jorn","rati"]){titlePairArt[frontHero].onload=()=>buildTitlePairDim(frontHero);titleHeroMasks.jorn.onload=()=>{buildTitlePairDim("jorn");buildTitlePairDim("rati");};titleHeroMasks.rati.onload=()=>{buildTitlePairDim("jorn");buildTitlePairDim("rati");};}
+for(const who of ["jorn","rati"])titleHeroLayer[who].onload=()=>buildTitleHeroDim(who);
 window.TITLE_HERO_ART = titleHeroArt;
 let heroAssetError = false;
 if (window.DungeonMotions) {
@@ -3371,16 +3361,16 @@ function drawMinimap() {
 function drawTitle(now = performance.now()) {
   const W = cv.width, H = cv.height;
   ctx.fillStyle = "#101827"; ctx.fillRect(0, 0, W, H);
-  const selectedKey=titleFocus==="viking"?"jorn":"rati",pair=titlePairArt[selectedKey],dimmedOther=titlePairDim[selectedKey];
-  if (now >= titleLoadingUntil && titleArtwork.complete && titleArtwork.naturalWidth && titleLogo.complete && titleLogo.naturalWidth && pair?.complete && pair.naturalWidth) {
+  const selectedKey=titleFocus==="viking"?"jorn":"rati",otherKey=selectedKey==="jorn"?"rati":"jorn",frontLayer=titleHeroLayer[selectedKey],backLayer=titleHeroLayer[otherKey];
+  if (now >= titleLoadingUntil && titleArtwork.complete && titleArtwork.naturalWidth && titleLogo.complete && titleLogo.naturalWidth && frontLayer?.complete && frontLayer.naturalWidth && backLayer?.complete && backLayer.naturalWidth) {
     const size=Math.min(W,H),left=(W-size)/2,split=left+size*.5;
     ctx.save();ctx.filter="blur(18px)";ctx.globalAlpha=.72;ctx.drawImage(titleArtwork,-size*.12,-size*.12,W+size*.24,H+size*.24);ctx.restore();
     ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(titleArtwork,left,0,size,size);ctx.restore();
     const focusX=titleFocus==="viking"?left+size*.30:left+size*.75;
     const focusGlow=ctx.createRadialGradient(focusX,size*.66,4,focusX,size*.66,size*.34);
     focusGlow.addColorStop(0,titleFocus==="viking"?"rgba(255,194,98,.13)":"rgba(94,233,184,.12)");focusGlow.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=focusGlow;ctx.fillRect(left,0,size,size);
-    if(pair?.complete&&pair.naturalWidth)ctx.drawImage(pair,left,0,size,size);
-    if(dimmedOther)ctx.drawImage(dimmedOther,left,0,size,size);
+    const dimLayer=titleHeroDim[otherKey];if(dimLayer)ctx.drawImage(dimLayer,left,0,size,size);else{ctx.save();ctx.globalAlpha=.58;ctx.drawImage(backLayer,left,0,size,size);ctx.restore();}
+    ctx.drawImage(frontLayer,left,0,size,size);
     if(titleLogo.complete&&titleLogo.naturalWidth){const scale=size/1254,lx=left+190*scale,ly=42*scale,lw=900*scale,lh=175*scale;ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";ctx.shadowColor="rgba(0,0,0,.92)";ctx.shadowBlur=9*scale;ctx.shadowOffsetY=3*scale;ctx.drawImage(titleLogo,lx,ly,lw,lh);ctx.restore();}
     for(const [who,side] of [["viking","left"],["ranger","right"]]){
       const isSelected=titleFocus===who,tint=who==="viking"?"#e9ae50":"#61cfaa";
