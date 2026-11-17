@@ -299,7 +299,7 @@ let debugLoadingIndex = 0;
 let debugUnidentifiedKinds=new Set();
 try{debugUnidentifiedKinds=new Set(JSON.parse(sessionStorage.getItem("debug-unidentified-kinds")||"[]"));}catch(e){}
 const titleLoadingUntil = performance.now() + 900;
-const titleLogo = new Image(); titleLogo.src = "./assets/title/road-remembers-logo.png";
+const titleCoverArt = new Image(); titleCoverArt.src = "./assets/title/road-remembers-cover.png";
 const titleHeroArt = {jorn:new Image(),rati:new Image()};
 titleHeroArt.jorn.src = "./assets/title/heroes/jorn.png";
 titleHeroArt.rati.src = "./assets/title/heroes/rati.png";
@@ -3372,16 +3372,16 @@ function drawTitle(now = performance.now()) {
   const W = cv.width, H = cv.height;
   ctx.fillStyle = "#101827"; ctx.fillRect(0, 0, W, H);
   const selectedKey=titleFocus==="viking"?"jorn":"rati",pair=titlePairArt[selectedKey],dimmedOther=titlePairDim[selectedKey];
-  if (now >= titleLoadingUntil && titleArtwork.complete && titleArtwork.naturalWidth && titleLogo.complete && titleLogo.naturalWidth && pair?.complete && pair.naturalWidth) {
+  if (now >= titleLoadingUntil && titleArtwork.complete && titleArtwork.naturalWidth && pair?.complete && pair.naturalWidth) {
     const size=Math.min(W,H),left=(W-size)/2,split=left+size*.5;
     ctx.save();ctx.filter="blur(18px)";ctx.globalAlpha=.72;ctx.drawImage(titleArtwork,-size*.12,-size*.12,W+size*.24,H+size*.24);ctx.restore();
     ctx.save();ctx.imageSmoothingEnabled=true;ctx.drawImage(titleArtwork,left,0,size,size);ctx.restore();
     const focusX=titleFocus==="viking"?left+size*.30:left+size*.75;
     const focusGlow=ctx.createRadialGradient(focusX,size*.66,4,focusX,size*.66,size*.34);
     focusGlow.addColorStop(0,titleFocus==="viking"?"rgba(255,194,98,.13)":"rgba(94,233,184,.12)");focusGlow.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=focusGlow;ctx.fillRect(left,0,size,size);
+    if(titleCoverArt.complete&&titleCoverArt.naturalWidth){const scale=size/1254;ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";ctx.drawImage(titleCoverArt,190,42,900,175,left+190*scale,42*scale,900*scale,175*scale);ctx.restore();}
     if(pair?.complete&&pair.naturalWidth)ctx.drawImage(pair,left,0,size,size);
     if(dimmedOther)ctx.drawImage(dimmedOther,left,0,size,size);
-    if(titleLogo.complete&&titleLogo.naturalWidth){const scale=size/1254,lx=left+190*scale,ly=42*scale,lw=900*scale,lh=175*scale;ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";ctx.shadowColor="rgba(0,0,0,.92)";ctx.shadowBlur=9*scale;ctx.shadowOffsetY=3*scale;ctx.drawImage(titleLogo,lx,ly,lw,lh);ctx.restore();}
     for(const [who,side] of [["viking","left"],["ranger","right"]]){
       const isSelected=titleFocus===who,tint=who==="viking"?"#e9ae50":"#61cfaa";
       const cardW=Math.min(W*.145,size*.22),cardH=H*.11,cardX=side==="left"?left-cardW-6:left+size+6,cardY=H*.78;
