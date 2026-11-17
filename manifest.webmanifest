@@ -1,0 +1,16 @@
+{
+  "id": "./",
+  "name": "THE ROAD REMEMBERS",
+  "short_name": "Road Remembers",
+  "description": "A dungeon adventure",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14100e",
+  "theme_color": "#14100e",
+  "icons": [
+    { "src": "./assets/brand/app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "./assets/brand/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
+}

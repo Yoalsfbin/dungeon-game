@@ -2,7 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14100e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="THE ROAD REMEMBERS">
+<link rel="icon" href="./assets/brand/app-icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./assets/brand/apple-touch-icon.png">
+<link rel="manifest" href="./manifest.webmanifest">
 <title>THE ROAD REMEMBERS</title>
 <style>
   :root { --bg: #14100e; --panel: #1f1814; --ink: #f0e6d0; --dim: #9a8c78; --accent: #e8c040; }
@@ -127,6 +134,7 @@
   #wrap[data-screen="keys"] #status, #wrap[data-screen="keys"] #log { display:none; }
   #controlHint { grid-column:1 / -1; flex-basis:100%; margin:0; color:#d0c5a8; font-size:12px; line-height:1.5; }
   #controls[hidden], #pad[hidden] { display:none; }
+  #controls .mobile-cluster[hidden] { display:none !important; }
   #controls button:disabled { opacity:.45; cursor:default; }
   #controls .primary { background:#493c1c; border-color:#e8c040; }
   #controls[data-screen="title"] { justify-content:center; align-items:center; margin:8px auto 0; max-width:832px; }
@@ -184,6 +192,31 @@
     #controls[data-screen="play"] #pad { align-self:start; }
     #controls[data-screen="play"] #actions { height:100%; max-height:100%; min-height:0; align-content:start; overflow-y:auto; overscroll-behavior:contain; padding-right:2px; }
   }
+  .mobile-cluster { display:none; }
+  @media (max-width:800px) and (pointer:coarse) {
+    #controls[data-screen="play"] { display:grid; grid-template-columns:minmax(62px,1fr) minmax(132px,auto) minmax(62px,1fr); align-items:center; gap:5px; width:100%; height:clamp(128px,22dvh,190px); max-height:none; overflow:hidden; padding:5px; margin:0; background:#17120f; border:1px solid #534438; border-radius:8px; }
+    #controls[data-screen="play"] #controlHint, #controls[data-screen="play"] #actions { display:none !important; }
+    #controls[data-screen="play"] .mobile-cluster { display:flex; min-width:0; height:100%; flex-direction:column; justify-content:center; gap:5px; }
+    #controls[data-screen="play"] .mobile-cluster button { flex:1 1 0; min-width:0; width:100%; min-height:40px; padding:3px 2px; font-size:clamp(10px,2.8vw,13px); line-height:1.15; white-space:normal; overflow-wrap:anywhere; }
+    #controls[data-screen="play"] #pad { display:grid; grid-template-columns:repeat(3, minmax(38px,48px)); grid-template-rows:repeat(3,minmax(38px,48px)); justify-content:center; align-content:center; gap:3px; min-width:0; }
+    #controls[data-screen="play"] #pad button { min-width:0; min-height:0; width:100%; height:100%; padding:1px; font-size:clamp(11px,3vw,14px); }
+    #controls[data-screen="play"] #pad button:nth-child(5) { font-size:10px; }
+    #controls[data-screen="play"] .mobile-cluster .toggle[aria-pressed="true"] { background:#806522; border-color:#ffe08a; color:#fff5d8; box-shadow:0 0 8px #e8c04077; }
+    #controls[data-screen="play"] .mobile-cluster .mobile-menu { background:#263451; border-color:#aebcdd; color:#fff0c6; }
+  }
+  @media (max-width:950px) and (pointer:coarse) and (orientation:landscape) {
+    #wrap { width:100%; height:100dvh; max-width:none; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr) 56px 116px; gap:3px; }
+    #status { grid-column:1; grid-row:1; }
+    #stage { grid-column:1; grid-row:2; min-height:0; }
+    #log { grid-column:1; grid-row:3; height:56px; min-height:0; padding:3px 8px; font-size:11px; }
+    #controls[data-screen="play"] { grid-column:1; grid-row:4; height:116px; grid-template-columns:minmax(80px,1fr) minmax(132px,auto) minmax(80px,1fr); padding:2px 8px; }
+    #controls[data-screen="play"] .mobile-cluster { flex-direction:row; align-items:stretch; }
+    #controls[data-screen="play"] .mobile-cluster button { min-height:44px; font-size:11px; }
+    #controls[data-screen="play"] #pad { grid-template-columns:repeat(3,36px); grid-template-rows:repeat(3,36px); gap:1px; }
+    #controls[data-screen="play"] #pad button { font-size:10px; }
+    #controls[data-screen="play"] #pad button:nth-child(5) { font-size:9px; }
+    #help { display:none; }
+  }
 </style>
 </head>
 <body>
@@ -198,11 +231,13 @@
   <div id="log" tabindex="0" role="log" aria-live="polite" aria-label="メッセージ履歴。タップしてスクロール"></div>
   <div id="controls" aria-label="ゲーム操作">
     <p id="controlHint" aria-live="polite"></p>
+    <div id="mobile-left" class="mobile-cluster" aria-label="左側の操作"></div>
     <div id="pad" aria-label="移動とメニュー選択"></div>
+    <div id="mobile-right" class="mobile-cluster" aria-label="右側の操作"></div>
     <div id="actions"></div>
   </div>
   <div id="help">
-    <div class="pointer-help">方向ボタンで移動。攻撃 / 決定で実行、戻るで閉じます。道具の行は直接タップできます。<br>特技・矢・階段は「行動」、地図・履歴・移動設定は「メニュー」。</div>
+    <div class="pointer-help">中央の方向パッドで移動。左右のボタンで攻撃・道具・足元などを操作。メニューから特技・表示・設定を選びます。</div>
     <div class="keyboard-help">
     移動: 矢印 / テンキー（斜めは 7 9 1 3、Y U B N）　攻撃: Z / Space　道具: X / I（↑↓ 選択、Z 決定、X 戻る、Tab 整理）　足踏み: 5 / .　操作の一覧: H<br>
     向きだけ: C+方向　ダッシュ: Shift+方向　斜めだけ: D+矢印 2 つ　拾わずに乗る: V+方向　休む: Q　振り向く: S　矢を撃つ: F　特技: A　地図: M（押している間）　履歴: L　効果音: N<br>
@@ -3346,7 +3381,7 @@ function drawTitle(now = performance.now()) {
     focusGlow.addColorStop(0,titleFocus==="viking"?"rgba(255,194,98,.13)":"rgba(94,233,184,.12)");focusGlow.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=focusGlow;ctx.fillRect(left,0,size,size);
     if(pair?.complete&&pair.naturalWidth)ctx.drawImage(pair,left,0,size,size);
     if(dimmedOther)ctx.drawImage(dimmedOther,left,0,size,size);
-    if(titleLogo.complete&&titleLogo.naturalWidth){const scale=size/1254;ctx.drawImage(titleLogo,left+190*scale,42*scale,900*scale,175*scale);}
+    if(titleLogo.complete&&titleLogo.naturalWidth){const scale=size/1254,lx=left+190*scale,ly=42*scale,lw=900*scale,lh=175*scale;ctx.save();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";ctx.shadowColor="rgba(0,0,0,.92)";ctx.shadowBlur=9*scale;ctx.shadowOffsetY=3*scale;ctx.drawImage(titleLogo,lx,ly,lw,lh);ctx.restore();}
     for(const [who,side] of [["viking","left"],["ranger","right"]]){
       const isSelected=titleFocus===who,tint=who==="viking"?"#e9ae50":"#61cfaa";
       const cardW=Math.min(W*.145,size*.22),cardH=H*.11,cardX=side==="left"?left-cardW-6:left+size+6,cardY=H*.78;
@@ -4487,13 +4522,13 @@ function recordResult(cleared) {
 }
 </script>
 <script>
-const pad = document.getElementById("pad"), actions = document.getElementById("actions");
+const pad = document.getElementById("pad"), actions = document.getElementById("actions"), mobileLeft=document.getElementById("mobile-left"), mobileRight=document.getElementById("mobile-right");
 document.getElementById("controls").addEventListener("contextmenu", event => event.preventDefault());
 document.addEventListener("pointerdown", () => { document.documentElement.dataset.input = "pointer";heardKey=true;unlockAudio(); }, { passive:true });
 document.addEventListener("keydown", event => {
   if (event.isTrusted && !["Shift", "Control", "Alt", "Meta"].includes(event.key)) {document.documentElement.dataset.input = "keyboard";unlockAudio();}
 }, { capture:true });
-let pointerMode = "move", pointerDiagonalOnly = false;
+let pointerMode = "move", pointerDiagonalOnly = false, dashArmed=false, noPickArmed=false;
 function pressKey(key) {
   const target = state === "naming" ? document.getElementById("nickname") : document;
   target.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles:true, cancelable:true }));
@@ -4534,7 +4569,8 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) stopD
       pressKey(!direction ? "Enter" : direction[1] < 0 ? "ArrowUp" : direction[1] > 0 ? "ArrowDown" : direction[0] < 0 ? "ArrowLeft" : "ArrowRight"); return;
     }
     if(direction&&pointerWaitHeld){pointerWaitUsed=true;pointerCommand({type:"turn",d:direction});return;}
-    pointerCommand(direction ? { type:pointerMode === "nopick" ? "move" : pointerMode, d:direction, noPick:pointerMode === "nopick" } : { type:"wait" });
+    const dashMove=dashArmed||pointerMode==="dash",noPickMove=noPickArmed||pointerMode==="nopick";
+    pointerCommand(direction ? { type:pointerMode === "turn" ? "turn" : dashMove ? "dash" : "move", d:direction, noPick:noPickMove } : { type:"wait" });
   };
   const button = addControl(pad, label, event => {
     if(!direction&&suppressWaitClick){suppressWaitClick=false;return;}
@@ -4546,7 +4582,7 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) stopD
       event.preventDefault(); stopDirection();
       button.setPointerCapture(event.pointerId);
       if (state !== "play") { activate(); return; }
-      const hold = { pointerId:event.pointerId, dashing:pointerMode === "dash" };
+      const hold = { pointerId:event.pointerId, dashing:dashArmed||pointerMode==="dash" };
       heldDirection = hold;
       if (!busy()) activate();
       const repeat = () => {
@@ -4580,6 +4616,17 @@ const feetButton = addControl(actions, "足元", () => {
   if (!feetLabel()) { log("足元には何もない。"); return; }
   showInv(); menu.sub = { cur:0, opts:feetOptions() }; renderInv();
 });
+primaryButtons.attack.textContent="攻撃 / 話す";
+primaryButtons.attack.setAttribute("aria-label","攻撃または話す");
+mobileLeft.append(primaryButtons.attack, primaryButtons.inv, feetButton);
+const dashButton=addControl(mobileRight,"ダッシュ",()=>{dashArmed=!dashArmed;dashButton.setAttribute("aria-pressed",String(dashArmed));});
+dashButton.classList.add("toggle");dashButton.setAttribute("aria-pressed","false");
+dashButton.setAttribute("aria-label","ダッシュ移動の切り替え");
+const noPickButton=addControl(mobileRight,"拾わず乗る",()=>{noPickArmed=!noPickArmed;noPickButton.setAttribute("aria-pressed",String(noPickArmed));});
+noPickButton.classList.add("toggle");noPickButton.setAttribute("aria-pressed","false");
+noPickButton.setAttribute("aria-label","道具を拾わずに乗る切り替え");
+const mobileMenuButton=addControl(mobileRight,"メニュー",()=>openMobileMenu());
+mobileMenuButton.classList.add("mobile-menu");
 const backButton = addControl(actions, "戻る", () => {
   if (state === "map") state = "play";
   else if(state==="look"){state="play";contentLookFocus=null;}
@@ -4639,6 +4686,24 @@ const returnButton = addControl(menuControls, "タイトルへ戻る", () => {
   ask(debug ? "デバッグを終えてタイトルへ戻りますか？" : "冒険を保存してタイトルへ戻りますか？", returnToTitle, () => {});
 });
 returnButton.classList.add("danger");
+function openMobileMenu(section) {
+  const openSection=(title,entries)=>openMenu({title:()=>title,hint:"項目を選んでください。",rows:()=>entries.map(entry=>({label:entry.label})),onOk:index=>entries[index].run(),onBack:()=>openMobileMenu()});
+  const runCommand=type=>()=>{closeMenu();pointerCommand({type});};
+  if(!section){
+    const groups=["行動","表示","操作設定","冒険"];
+    openMenu({title:()=>"メニュー",hint:"カテゴリを選んでください。",rows:()=>groups.map(label=>({label})),onOk:index=>openMobileMenu(groups[index])});
+  } else if(section==="行動")openSection("行動",[["特技","skill"],["矢を撃つ","shoot"],["階段を使う","stairs"],["休む","rest"],["振り向く","face"]].map(([label,type])=>({label,run:runCommand(type)})));
+  else if(section==="表示")openSection("表示",[["見渡す","look"],["地図","map"],["履歴","log"]].map(([label,type])=>({label,run:runCommand(type)})));
+  else if(section==="操作設定")openSection("操作設定",[
+    {label:"斜め移動だけ: "+(pointerDiagonalOnly?"ON":"OFF"),run:()=>{pointerDiagonalOnly=!pointerDiagonalOnly;openMobileMenu(section);}},
+    {label:"方向ボタン: "+(pointerMode==="turn"?"向きだけ":"移動"),run:()=>{pointerMode=pointerMode==="turn"?"move":"turn";openMobileMenu(section);}},
+    {label:"効果音",run:runCommand("sound")},{label:"操作説明",run:runCommand("help")}
+  ]);
+  else if(section==="冒険")openSection("冒険",[
+    ...(debug?[{label:"デバッグ操作",run:()=>{closeMenu();if(!busy())openDebug();}}]:[]),
+    {label:"タイトルへ戻る",run:()=>{closeMenu();ask(debug?"デバッグを終えてタイトルへ戻りますか？":"冒険を保存してタイトルへ戻りますか？",returnToTitle,()=>{});}}
+  ]);
+}
 const debugTools = document.createElement("div"); debugTools.className = "debug-tools"; debugTools.style.flexBasis = "100%"; actions.appendChild(debugTools);
 addControl(debugTools, "前の種類", () => { if (state === "menu" && pm && pm.onSide) { pm.onSide(-1); renderMenu(); } });
 addControl(debugTools, "次の種類", () => { if (state === "menu" && pm && pm.onSide) { pm.onSide(1); renderMenu(); } });
@@ -4656,7 +4721,7 @@ function returnToTitle() {
 }
 let controlsState = null;
 function updateControlVisibility() {
-  const token = [state, dbgPick, debug, titleConfirm, titleFocus, pointerMode, !!(pm && pm.onSide), heroAssetError, pointerHelp()].join("|");
+  const token = [state, dbgPick, debug, titleConfirm, titleFocus, pointerMode, dashArmed, noPickArmed, !!(pm && pm.onSide), heroAssetError, pointerHelp()].join("|");
   if (controlsState !== token) {
     controlsState = token;
     const isTitle = state === "title", titleLayout=isTitle||(state==="menu"&&pm?.returnState==="title"), isResult = state === "dead" || state === "clear";
@@ -4665,6 +4730,8 @@ function updateControlVisibility() {
     controls.dataset.screen = titleLayout ? "title" : state === "keys" ? "keys" : isResult ? "result" : "play";
     document.getElementById("wrap").dataset.screen = controls.dataset.screen;
     pad.hidden = titleLayout || isResult || state === "naming";
+    mobileLeft.hidden=titleLayout||isResult||state==="naming";
+    mobileRight.hidden=titleLayout||isResult||state==="naming";
     primaryButtons.attack.hidden = titleLayout || isResult || state === "map";
     primaryButtons.attack.textContent = state === "play" ? "攻撃 / 話す" : state === "naming" ? "名前を保存" : "決定";
     primaryButtons.inv.hidden = state !== "play";
@@ -4687,7 +4754,7 @@ function updateControlVisibility() {
     sortButton.hidden = state !== "inv";
     gameDebugButton.hidden = !debug;
     debugTools.hidden = !(state === "menu" && pm && pm.onSide && debug);
-    document.getElementById("controlHint").textContent = heroAssetError ? "キャラ画像の読み込みに失敗しました。再読み込みしてください。" : state === "keys" ? "方向で操作を選択。決定で変更し、新しいキーを押します。戻るでタイトルへ。" : isTitle ? "主人公を選び、次の窓で冒険の深さを決めると始まります。保存した冒険は「つづきから」。" : isResult ? "冒険終了。「タイトルへ戻る」で次の冒険を始められます。" : state === "map" ? "全体マップを表示中。「戻る」で冒険へ。" : state === "look" ? "見渡し中。方向ボタンで視点を動かし、「戻る」で冒険へ。" : isMenu ? "行をタップするか、方向ボタンで選んで「決定」。「戻る」で閉じます。" : "方向は長押しで連続移動。特技・矢は「行動」、確認や設定は「メニュー」。";
+    document.getElementById("controlHint").textContent = heroAssetError ? "キャラ画像の読み込みに失敗しました。再読み込みしてください。" : state === "keys" ? "方向で操作を選択。決定で変更し、新しいキーを押します。戻るでタイトルへ。" : isTitle ? "主人公を選び、次の窓で冒険の深さを決めると始まります。保存した冒険は「つづきから」。" : isResult ? "冒険終了。「タイトルへ戻る」で次の冒険を始められます。" : state === "map" ? "全体マップを表示中。「戻る」で冒険へ。" : state === "look" ? "見渡し中。方向ボタンで視点を動かし、「戻る」で冒険へ。" : isMenu ? "行をタップするか、方向ボタンで選んで「決定」。「戻る」で閉じます。" : "中央の方向パッドで移動。左右のボタンから攻撃・道具・足元、ダッシュ、拾わず乗るを操作。メニューは青い窓で開きます。";
     for (const group of actions.querySelectorAll("details")) {
       group.open = false;
       group.hidden = state !== "play";
