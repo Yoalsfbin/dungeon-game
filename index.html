@@ -198,21 +198,21 @@
   }
   .mobile-cluster { display:none; }
   @media (max-width:800px) and (pointer:coarse) {
-    #controls[data-screen="play"] { display:grid; grid-template-columns:minmax(62px,1fr) minmax(132px,auto) minmax(62px,1fr); align-items:center; gap:5px; width:100%; height:clamp(128px,22dvh,190px); max-height:none; overflow:hidden; padding:5px; margin:0; background:#17120f; border:1px solid #534438; border-radius:8px; }
+    #controls[data-screen="play"] { display:grid; grid-template-columns:minmax(48px,1fr) minmax(0,auto) minmax(48px,1fr); align-items:center; gap:5px; width:100%; height:clamp(128px,22dvh,190px); max-height:none; overflow:hidden; padding:5px; margin:0; background:#17120f; border:1px solid #534438; border-radius:8px; }
     #controls[data-screen="play"] #controlHint, #controls[data-screen="play"] #actions { display:none !important; }
     #controls[data-screen="play"] .mobile-cluster { display:grid; min-width:0; height:100%; grid-auto-flow:row; align-content:center; gap:5px; }
     #controls[data-screen="play"] #mobile-left { grid-template-columns:minmax(0,1fr); grid-template-rows:repeat(2,minmax(40px,1fr)); }
     #controls[data-screen="play"] #mobile-right { grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:repeat(2,minmax(40px,1fr)); }
     #controls[data-screen="play"] .mobile-cluster button { flex:1 1 0; min-width:0; width:100%; min-height:40px; padding:3px 2px; font-size:clamp(10px,2.8vw,13px); line-height:1.15; white-space:normal; overflow-wrap:anywhere; }
-    #controls[data-screen="play"] #pad { display:grid; grid-template-columns:repeat(3, minmax(38px,48px)); grid-template-rows:repeat(3,minmax(38px,48px)); justify-content:center; align-content:center; gap:3px; min-width:0; }
+    #controls[data-screen="play"] #pad { display:grid; grid-template-columns:repeat(3,clamp(34px,12.2vw,44px)); grid-template-rows:repeat(3,clamp(34px,12.2vw,44px)); justify-content:center; align-content:center; gap:2px; min-width:0; }
     #controls[data-screen="play"] #pad button { min-width:0; min-height:0; width:100%; height:100%; padding:1px; font-size:clamp(11px,3vw,14px); }
     #controls[data-screen="play"] #pad button:nth-child(5) { font-size:10px; }
     #controls[data-screen="play"] .mobile-cluster .toggle[aria-pressed="true"] { background:#806522; border-color:#ffe08a; color:#fff5d8; box-shadow:0 0 8px #e8c04077; }
     #controls[data-screen="play"] .mobile-cluster .mobile-menu { background:#263451; border-color:#aebcdd; color:#fff0c6; }
   }
-  @media (max-width:950px) and (pointer:coarse) and (orientation:landscape) {
+  @media (max-width:950px) and (orientation:landscape) {
     #wrap { position:fixed; inset:0; width:100%; height:100dvh; max-width:none; margin:0; padding:max(4px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(4px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left)); display:block; overflow:hidden; }
-    #stage { position:absolute; inset:0; min-height:0; display:flex; justify-content:center; align-items:center; background:#000; }
+    #stage { position:absolute; inset:0; min-height:0; min-width:0; display:flex; justify-content:center; align-items:center; background:#000; }
     #gameSurface { width:100%; height:100%; aspect-ratio:auto; display:flex; justify-content:center; align-items:center; }
     canvas#view { width:100%; height:100%; object-fit:contain; border:0; }
     #status { position:absolute; top:max(5px,env(safe-area-inset-top)); left:max(8px,env(safe-area-inset-left)); z-index:4; width:min(440px,calc(100% - 16px)); padding:4px 8px; background:rgba(20,16,14,.74); backdrop-filter:blur(5px); }
@@ -236,7 +236,7 @@
 <body>
 <div id="wrap">
   <div id="status"></div>
-  <div id="stage" style="position:relative">
+  <div id="stage">
     <div id="gameSurface">
     <canvas id="view" width="832" height="576"></canvas>
     <div id="inv" style="left:16px;top:16px"></div>
